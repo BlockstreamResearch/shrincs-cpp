@@ -45,22 +45,26 @@ namespace FORS_C {
         }
     }
 
-    uint32_t fors_grind(const unsigned char* message, const unsigned char* r, const unsigned char* pk_seed, const unsigned char* pk_root, unsigned char* adrs, uint32_t* out, unsigned char* digest_out)
+    uint32_t fors_grind(const unsigned char* message, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, unsigned char* adrs, uint32_t* out, unsigned char* digest_out, unsigned char* r_out)
     {
         SHA256_CTX ctx;
         SHA256_Init(&ctx);
 
-        setTypeAndClear(adrs, FORS_GRIND);
-        ctx = sha256_add_to_ctx(ctx, adrs, 32);
-        ctx = sha256_add_to_ctx(ctx, r, R_LEN);
+        // Or random(n)
+        unsigned char opt_rand[N];
+        memcpy(opt_rand, pk_seed, N);
 
         unsigned char res[32];
         uint32_t tmp_indices[K];
 
+        setTypeAndClear(adrs, FORS_GRIND);
+
         for (uint32_t ctr = 0; ctr < UINT32_MAX; ctr++)
         {
-            uint32_t ctr_be = htonl(ctr);
-            auto ctx_ = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
+            prf_msg(sk_prf, pk_seed, opt_rand, message, 32, true, ctr, R_LEN, r_out);
+
+            auto ctx_ = sha256_add_to_ctx(ctx, adrs, 32);
+            ctx_ = sha256_add_to_ctx(ctx_, r_out, R_LEN);
             ctx_ = sha256_add_to_ctx(ctx_, pk_seed, N);
             ctx_ = sha256_add_to_ctx(ctx_, pk_root, N);
             ctx_ = sha256_add_to_ctx(ctx_, message, 32);
@@ -149,20 +153,17 @@ namespace FORS_C {
     {
         unsigned char* sig = new unsigned char[FORS_SIGN_LEN];
 
-        // Or random(n)
-        unsigned char opt_rand[N];
-        memcpy(opt_rand, pk_seed, N);
-        auto r = prf_msg(sk_prf, pk_seed, opt_rand, message, 32, R_LEN);
+        unsigned char* r = new unsigned char[R_LEN];
 
         uint32_t indices[K];
-        uint32_t ctr = fors_grind(message, r, pk_seed, pk_root, adrs, indices, digest_out);
+        uint32_t ctr = fors_grind(message, sk_prf, pk_seed, pk_root, adrs, indices, digest_out, r);
 
         memcpy(sig, r, R_LEN);
         uint32_t offset = R_LEN;
 
-        uint32_t ctr_be = htonl(ctr);
-        memcpy(sig + offset, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
-        offset += 4;
+        // uint32_t ctr_be = htonl(ctr);
+        // memcpy(sig + offset, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
+        // offset += 4;
 
         for (uint32_t i = 0; i < K - 1; i++)
         {
@@ -190,9 +191,9 @@ namespace FORS_C {
         memcpy(r, sig, R_LEN);
         uint32_t offset = R_LEN;
 
-        uint32_t ctr;
-        memcpy(&ctr, sig + offset, 4);
-        offset += 4;
+        // uint32_t ctr;
+        // memcpy(&ctr, sig + offset, 4);
+        // offset += 4;
 
         SHA256_CTX ctx;
         SHA256_Init(&ctx);
@@ -200,7 +201,7 @@ namespace FORS_C {
         setTypeAndClear(adrs, FORS_GRIND);
         ctx = sha256_add_to_ctx(ctx, adrs, 32);
         ctx = sha256_add_to_ctx(ctx, r, R_LEN);
-        ctx = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr), 4);
+        // ctx = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr), 4);
         ctx = sha256_add_to_ctx(ctx, pk_seed, N);
         ctx = sha256_add_to_ctx(ctx, pk_root, N);
         ctx = sha256_add_to_ctx(ctx, message, 32);

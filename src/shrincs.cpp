@@ -248,8 +248,8 @@ namespace SHRINCS {
 
         const unsigned char* r = fors_sig;
 
-        uint32_t ctr;
-        memcpy(&ctr, fors_sig + R_LEN, 4);
+        // uint32_t ctr;
+        // memcpy(&ctr, fors_sig + R_LEN, 4);
         // ctr = ntohl(ctr);
 
         SHA256_CTX hash_ctx;
@@ -266,7 +266,7 @@ namespace SHRINCS {
         setTypeAndClear(adrs, FORS_GRIND);
         ctx = sha256_add_to_ctx(ctx, adrs, 32);
         ctx = sha256_add_to_ctx(ctx, r, R_LEN);
-        ctx = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr), 4);
+        // ctx = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr), 4);
         ctx = sha256_add_to_ctx(ctx, pk.seed.data(), N);
         ctx = sha256_add_to_ctx(ctx, pk.root.data(), N);
         ctx = sha256_add_to_ctx(ctx, message, 32);

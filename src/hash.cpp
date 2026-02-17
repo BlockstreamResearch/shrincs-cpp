@@ -29,7 +29,7 @@ namespace HASH
         memcpy(out, full_hash, 32);
     }
 
-    unsigned char* prf_msg(const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* opt_rand, const unsigned char* message, uint32_t message_len, uint32_t mask_len)
+    void prf_msg(const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* opt_rand, const unsigned char* message, uint32_t message_len, bool is_ctr, uint32_t ctr, uint32_t mask_len, unsigned char* out)
     {
         SHA256_CTX ctx;
         SHA256_Init(&ctx);
@@ -38,8 +38,11 @@ namespace HASH
         ctx = sha256_add_to_ctx(ctx, pk_seed, N);
         ctx = sha256_add_to_ctx(ctx, opt_rand, N);
         ctx = sha256_add_to_ctx(ctx, message, message_len);
+        if (is_ctr)
+        {
+            ctx = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr), 4);
+        }
 
-        unsigned char* res = new unsigned char[mask_len];
         for (uint32_t i = 0; i < ceil((mask_len + 31) / 32); i++)
         {
             uint32_t ctr_be = htonl(i);
@@ -47,9 +50,7 @@ namespace HASH
             unsigned char hash[32];
             sha256_finalize_32(ctx_, hash);
 
-            memcpy(res + i * 32, hash, std::min(mask_len - i * 32, 32u));
+            memcpy(out + i * 32, hash, std::min(mask_len - i * 32, 32u));
         }
-        
-        return res;
     }
 }

@@ -155,7 +155,8 @@ namespace WOTS_C
         // Or random(n)
         unsigned char opt_rand[N];
         memcpy(opt_rand, pk_seed, N);
-        auto r = prf_msg(sk_prf, pk_seed, opt_rand, message, message_len, R_LEN);
+        unsigned char* r = new unsigned char[R_LEN];
+        prf_msg(sk_prf, pk_seed, opt_rand, message, message_len, false, 0, R_LEN, r);
 
         unsigned char* digest = new unsigned char[N];
         if (is_internal)

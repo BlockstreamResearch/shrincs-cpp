@@ -19,8 +19,8 @@ namespace Parameters
     inline constexpr uint32_t H_PRIME = HSL / D;
     inline constexpr uint32_t WOTS_SIGN_LEN = R_LEN + 4 + L * N;
     inline constexpr uint32_t XMSS_SIGN_LEN = WOTS_SIGN_LEN + H_PRIME * N;
-    // R + ctr + (K - 1)*(A + 1)
-    inline constexpr uint32_t FORS_SIGN_LEN = R_LEN + 4 + (K - 1)*(A + 1)*N;
+    // R + (K - 1)*(A + 1)
+    inline constexpr uint32_t FORS_SIGN_LEN = R_LEN + (K - 1)*(A + 1)*N;
     inline constexpr uint32_t MAX_SF_SIZE = N + WOTS_SIGN_LEN + HSF * N;
 }
 
