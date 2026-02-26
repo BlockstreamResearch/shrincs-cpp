@@ -57,7 +57,7 @@ namespace FORS_C {
         unsigned char res[32];
         uint32_t tmp_indices[K];
 
-        setTypeAndClear(adrs, FORS_GRIND);
+        setTypeAndClear(adrs, H_MSG);
 
         for (uint32_t ctr = 0; ctr < UINT32_MAX; ctr++)
         {
@@ -185,37 +185,9 @@ namespace FORS_C {
         return sig;
     }
 
-    unsigned char* fors_pk_from_sig(const unsigned char* sig, const unsigned char* message, const unsigned char* pk_seed, const unsigned char* pk_root, SHA256_CTX hash_ctx, unsigned char* adrs)
+    unsigned char* fors_pk_from_sig(const unsigned char* sig, uint32_t indices[K], SHA256_CTX hash_ctx, unsigned char* adrs)
     {
-        unsigned char r[R_LEN];
-        memcpy(r, sig, R_LEN);
         uint32_t offset = R_LEN;
-
-        // uint32_t ctr;
-        // memcpy(&ctr, sig + offset, 4);
-        // offset += 4;
-
-        SHA256_CTX ctx;
-        SHA256_Init(&ctx);
-
-        setTypeAndClear(adrs, FORS_GRIND);
-        ctx = sha256_add_to_ctx(ctx, adrs, 32);
-        ctx = sha256_add_to_ctx(ctx, r, R_LEN);
-        // ctx = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr), 4);
-        ctx = sha256_add_to_ctx(ctx, pk_seed, N);
-        ctx = sha256_add_to_ctx(ctx, pk_root, N);
-        ctx = sha256_add_to_ctx(ctx, message, 32);
-
-        unsigned char digest[32];
-        sha256_finalize_32(ctx, digest);
-
-        uint32_t indices[K];
-        fors_msg_to_indices(digest, indices);
-        
-        if (indices[K - 1] != 0)
-        {
-            throw std::runtime_error("Fors message digest is not valid");
-        }
 
         unsigned char roots[K-1][N];
 
@@ -269,7 +241,7 @@ namespace FORS_C {
 
         setTypeAndClear(adrs, FORS_PK);
 
-        ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
+        SHA256_CTX ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
 
         for(auto i : roots) 
         {

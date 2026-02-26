@@ -9,7 +9,7 @@ namespace Parameters
     inline constexpr uint32_t W = 4; // Winternitz parameter
     inline constexpr uint32_t L = 64; // WOTS+C chain amount
     inline constexpr uint32_t SWN = 140; // Target sum for WOTS+C
-    inline constexpr uint32_t HSF = 205; // Max stateful tree height
+    inline constexpr uint32_t HSF = 206; // Max stateful tree height
     inline constexpr uint32_t HSL = 24; // Max stateless hypertree height
     inline constexpr uint32_t D = 2; // Stateless hypertree layers
     inline constexpr uint32_t A = 22; // FORS tree height
@@ -36,11 +36,10 @@ namespace AddressTypes
     inline constexpr uint32_t FORS_TREE = 0x7;
     inline constexpr uint32_t FORS_PK = 0x8;
     inline constexpr uint32_t WOTS_GRIND = 0x9;
-    inline constexpr uint32_t FORS_GRIND = 0x0A;
+    inline constexpr uint32_t FORS_PRF = 0x0A;
     inline constexpr uint32_t H_MSG = 0x0B;
     inline constexpr uint32_t WOTS_PRF = 0x0C;
-    inline constexpr uint32_t FORS_PRF = 0x0D;
-    inline constexpr uint32_t ROOT = 0x0E;
+    inline constexpr uint32_t ROOT = 0x0D;
 }
 
 #endif

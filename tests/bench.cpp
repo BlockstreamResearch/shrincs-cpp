@@ -52,15 +52,15 @@ int main()
     State state = State();
 
     shrincs_key_gen(pk, sk, state);
-    // pk.seed = hex_to_bytes("4b2248974c2b22fbcdc84dcbb60e304f");
-    // pk.root = hex_to_bytes("4db631344aefeedc4135d4252b39a34c");
+    // pk.seed = hex_to_bytes("29ab27ec700ca13c532563d0a0708a0c");
+    // pk.root = hex_to_bytes("4bdcaf7f38409293a679e189f517b8ba");
 
     // memcpy(sk.pk.seed.data(), pk.seed.data(), N);
     // memcpy(sk.pk.root.data(), pk.root.data(), N);
-    // sk.sf = hex_to_bytes("a4f98d887f112916e1484dc52d568b73");
-    // sk.sl = hex_to_bytes("107ca367e0bd75bbe2b46c2225c09ba1");
-    // sk.prf = hex_to_bytes("0fc46e94979bf47503857a240ff21dbe");
-    // sk.seed = hex_to_bytes("befe4749de85c9947e8b0d665f5ae153");
+    // sk.sf = hex_to_bytes("967fef422d4dc6c9bc7ca0cac3e1185b");
+    // sk.sl = hex_to_bytes("95e85f3d7035d4a0cf780eb661bee1b9");
+    // sk.prf = hex_to_bytes("c522c648c2ec264290a5e2daf5a3516d");
+    // sk.seed = hex_to_bytes("46cfcaae59053efb09a25e99affb3d86");
 
     // state.q = 0;
     // state.valid = true;

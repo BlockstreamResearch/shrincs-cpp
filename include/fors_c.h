@@ -21,7 +21,7 @@ namespace FORS_C {
     unsigned char* fors_treehash(const unsigned char* sk_seed, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t tree_idx, uint32_t target_height, uint32_t start_idx);
     unsigned char* fors_auth_path(const unsigned char* sk_seed, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t tree_idx, uint32_t leaf_idx);
     unsigned char* fors_sign(const unsigned char* message, const unsigned char* sk_seed, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, SHA256_CTX hash_ctx, unsigned char* adrs, unsigned char* digest_out);
-    unsigned char* fors_pk_from_sig(const unsigned char* sig, const unsigned char* message, const unsigned char* pk_seed, const unsigned char* pk_root, SHA256_CTX hash_ctx, unsigned char* adrs);
+    unsigned char* fors_pk_from_sig(const unsigned char* sig, uint32_t indices[K], SHA256_CTX hash_ctx, unsigned char* adrs);
 }
 
 #endif

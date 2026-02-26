@@ -37,11 +37,11 @@ namespace HASH
         ctx = sha256_add_to_ctx(ctx, sk_prf, N);
         ctx = sha256_add_to_ctx(ctx, pk_seed, N);
         ctx = sha256_add_to_ctx(ctx, opt_rand, N);
-        ctx = sha256_add_to_ctx(ctx, message, message_len);
         if (is_ctr)
         {
             ctx = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr), 4);
         }
+        ctx = sha256_add_to_ctx(ctx, message, message_len);
 
         for (uint32_t i = 0; i < ceil((mask_len + 31) / 32); i++)
         {

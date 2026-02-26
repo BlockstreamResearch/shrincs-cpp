@@ -67,6 +67,7 @@ namespace SHRINCS {
         auto pk_sl = XMSS::xmss_root(sk_seed, hash_ctx, adrs, H_PRIME);
 
         setLayerAddress(adrs, 0);
+        setTreeAddress(adrs, 0, 0);
         setTypeAndClear(adrs, ROOT);
         unsigned char* pk_root = new unsigned char[N];
         auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
@@ -146,11 +147,21 @@ namespace SHRINCS {
         unsigned char* digest = new unsigned char[32];
 
         auto fors_sig = FORS_C::fors_sign(message, sk.seed.data(), sk.prf.data(), sk.pk.seed.data(), sk.pk.root.data(), hash_ctx, adrs, digest);
-        auto fors_pk = FORS_C::fors_pk_from_sig(fors_sig, message, sk.pk.seed.data(), sk.pk.root.data(), hash_ctx, adrs);
+
+        uint32_t indices[K];
+        FORS_C::fors_msg_to_indices(digest, indices);
+        if (indices[K - 1] != 0)
+        {
+            throw std::runtime_error("Fors message digest is not valid");
+        }
 
         uint32_t* tree_idx = new uint32_t[D];
         uint32_t* leaf_idx = new uint32_t[D];
         parse_idx(digest, tree_idx, leaf_idx);
+
+        setLayerAddress(adrs, 0);
+        setTreeAddress(adrs, 0, tree_idx[0] * pow(2, H_PRIME) + leaf_idx[0]);
+        auto fors_pk = FORS_C::fors_pk_from_sig(fors_sig, indices, hash_ctx, adrs);
 
         unsigned char* ht_sig = new unsigned char[XMSS_SIGN_LEN * D];
         auto msg = fors_pk;
@@ -263,10 +274,9 @@ namespace SHRINCS {
         SHA256_CTX ctx;
         SHA256_Init(&ctx);
 
-        setTypeAndClear(adrs, FORS_GRIND);
+        setTypeAndClear(adrs, H_MSG);
         ctx = sha256_add_to_ctx(ctx, adrs, 32);
         ctx = sha256_add_to_ctx(ctx, r, R_LEN);
-        // ctx = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr), 4);
         ctx = sha256_add_to_ctx(ctx, pk.seed.data(), N);
         ctx = sha256_add_to_ctx(ctx, pk.root.data(), N);
         ctx = sha256_add_to_ctx(ctx, message, 32);
@@ -274,16 +284,23 @@ namespace SHRINCS {
         unsigned char* digest = new unsigned char[32];
         sha256_finalize_32(ctx, digest);
 
+        uint32_t indices[K];
+        FORS_C::fors_msg_to_indices(digest, indices);
+        if (indices[K - 1] != 0)
+        {
+            throw std::runtime_error("Fors message digest is not valid");
+        }
+
         uint32_t* tree_idx = new uint32_t[D];
         uint32_t* leaf_idx = new uint32_t[D];
         parse_idx(digest, tree_idx, leaf_idx);
 
         setLayerAddress(adrs, 0);
-        setTreeAddress(adrs, 0, 0);
+        setTreeAddress(adrs, 0, tree_idx[0] * pow(2, H_PRIME) + leaf_idx[0]);
 
         unsigned char* fors_pk;
         try{
-            fors_pk = FORS_C::fors_pk_from_sig(fors_sig, message, pk.seed.data(), pk.root.data(), hash_ctx, adrs);
+            fors_pk = FORS_C::fors_pk_from_sig(fors_sig, indices, hash_ctx, adrs);
         }
         catch(const std::exception& e)
         {
@@ -314,6 +331,7 @@ namespace SHRINCS {
         auto sl = msg;
 
         setLayerAddress(adrs, 0);
+        setTreeAddress(adrs, 0, 0);
         unsigned char* root = new unsigned char[N];
         setTypeAndClear(adrs, ROOT);
         ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
