@@ -1,5 +1,5 @@
 # SHRINCS
-C++ implementation of the SHRINCS post-quantum signature scheme.
+C++ implementation of the [SHRINCS](https://github.com/BlockstreamResearch/HB-Liquid) post-quantum signature scheme.
 
 ## Requirements
 Before building, run:
@@ -17,22 +17,10 @@ brew install googletest openssl
 
 ## Building & Testing
 
-### Build Library
-Compiles the static library `libshrincs.a`
 ```bash
-make build
-```
-
-### Run Unit Tests
-Runs the GoogleTest suite:
-```bash
-make test
-```
-
-### Run Benchmark
-Measures signature and verification speed:
-```bash
-make benchmark
+make build     # Build libshrincs.a
+make test      # Run GTest suite
+make benchmark # Run performance benchmarks
 ```
 
 ## Usage

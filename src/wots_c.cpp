@@ -91,13 +91,14 @@ namespace WOTS_C
         return res;
     }
 
-    uint32_t wots_grind(const unsigned char* message, unsigned char* adrs, unsigned char* msg_out)
+    uint32_t wots_grind(const unsigned char* message, const unsigned char* pk_seed, unsigned char* adrs, unsigned char* msg_out)
     {
         SHA256_CTX ctx;
         SHA256_Init(&ctx);
 
         setTypeAndClear(adrs, WOTS_GRIND);
         ctx = sha256_add_to_ctx(ctx, adrs, 32);
+        ctx = sha256_add_to_ctx(ctx, pk_seed, N);
         ctx = sha256_add_to_ctx(ctx, message, N);
 
         unsigned char res[N];
@@ -125,13 +126,14 @@ namespace WOTS_C
         throw std::runtime_error("Unnable to find valid wots message digest");
     }
 
-    bool wots_digest(const unsigned char* message, uint32_t ctr, unsigned char* adrs, unsigned char* msg_out)
+    bool wots_digest(const unsigned char* message, const unsigned char* pk_seed, uint32_t ctr, unsigned char* adrs, unsigned char* msg_out)
     {
         SHA256_CTX ctx;
         SHA256_Init(&ctx);
 
         setTypeAndClear(adrs, WOTS_GRIND);
         ctx = sha256_add_to_ctx(ctx, adrs, 32);
+        ctx = sha256_add_to_ctx(ctx, pk_seed, N);
         ctx = sha256_add_to_ctx(ctx, message, N);
 
         uint32_t ctr_be = htonl(ctr);
@@ -155,7 +157,8 @@ namespace WOTS_C
         // Or random(n)
         unsigned char opt_rand[N];
         memcpy(opt_rand, pk_seed, N);
-        auto r = prf_msg(sk_prf, pk_seed, opt_rand, message, message_len, R_LEN);
+        unsigned char* r = new unsigned char[R_LEN];
+        prf_msg(sk_prf, pk_seed, opt_rand, message, message_len, false, 0, R_LEN, r);
 
         unsigned char* digest = new unsigned char[N];
         if (is_internal)
@@ -177,7 +180,7 @@ namespace WOTS_C
         }
 
         unsigned char msg[L];
-        uint32_t ctr = wots_grind(digest, adrs, msg);
+        uint32_t ctr = wots_grind(digest, pk_seed, adrs, msg);
 
         memcpy(sig, r, R_LEN);
         uint32_t offset = R_LEN;
@@ -256,7 +259,7 @@ namespace WOTS_C
         }
 
         unsigned char msg[L];
-        bool valid = wots_digest(digest, ctr, adrs, msg);
+        bool valid = wots_digest(digest, pk_seed, ctr, adrs, msg);
 
         if (!valid)
         {
