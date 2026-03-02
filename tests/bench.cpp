@@ -98,10 +98,10 @@ int main()
     elapsed = end - start;
     std::cout << "Stateless signing time: " << elapsed.count() << " ms" << std::endl;
 
-    // print_hex(signature, N + FORS_SIGN_LEN + XMSS_SIGN_LEN * D);
+    // print_hex(signature, SL_SIZE);
 
     start = std::chrono::high_resolution_clock::now();
-    is_valid = shrincs_verify(message, signature, N + FORS_SIGN_LEN + XMSS_SIGN_LEN * D, pk);
+    is_valid = shrincs_verify(message, signature, SL_SIZE, pk);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     std::cout << "Stateless verification time: " << elapsed.count() << " ms" << std::endl;

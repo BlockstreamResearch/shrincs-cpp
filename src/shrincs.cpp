@@ -182,7 +182,7 @@ namespace SHRINCS {
             delete[] xmss_sig;
         }
         
-        unsigned char* sig = new unsigned char[N + FORS_SIGN_LEN + XMSS_SIGN_LEN * D];
+        unsigned char* sig = new unsigned char[SL_SIZE];
         memcpy(sig, sk.sf.data(), N);
         memcpy(sig + N, fors_sig, FORS_SIGN_LEN);
         memcpy(sig + N + FORS_SIGN_LEN, ht_sig, XMSS_SIGN_LEN * D);

@@ -22,6 +22,8 @@ namespace Parameters
     // R + (K - 1)*(A + 1)
     inline constexpr uint32_t FORS_SIGN_LEN = R_LEN + (K - 1)*(A + 1)*N;
     inline constexpr uint32_t MAX_SF_SIZE = N + WOTS_SIGN_LEN + HSF * N;
+    inline constexpr uint32_t SL_SIZE = N + FORS_SIGN_LEN + XMSS_SIGN_LEN * D;
+
 }
 
 namespace AddressTypes 
