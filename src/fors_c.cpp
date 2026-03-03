@@ -57,7 +57,7 @@ namespace FORS_C {
         unsigned char res[32];
         uint32_t tmp_indices[K];
 
-        setTypeAndClear(adrs, H_MSG);
+        setTypeAndClear(adrs, SL_H_MSG);
 
         for (uint32_t ctr = 0; ctr < UINT32_MAX; ctr++)
         {
@@ -156,14 +156,10 @@ namespace FORS_C {
         unsigned char* r = new unsigned char[R_LEN];
 
         uint32_t indices[K];
-        uint32_t ctr = fors_grind(message, sk_prf, pk_seed, pk_root, adrs, indices, digest_out, r);
+        fors_grind(message, sk_prf, pk_seed, pk_root, adrs, indices, digest_out, r);
 
         memcpy(sig, r, R_LEN);
         uint32_t offset = R_LEN;
-
-        // uint32_t ctr_be = htonl(ctr);
-        // memcpy(sig + offset, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
-        // offset += 4;
 
         for (uint32_t i = 0; i < K - 1; i++)
         {

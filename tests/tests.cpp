@@ -107,7 +107,6 @@ TEST(SHRINCSTest, StatefulSignVerify) {
     PublicKey pk = PublicKey();
     SecretKey sk = SecretKey();
     State state = State();
-    state.q = 4;
 
     shrincs_key_gen(pk, sk, state);
 
@@ -118,8 +117,55 @@ TEST(SHRINCSTest, StatefulSignVerify) {
 
     EXPECT_TRUE(is_valid);
 
-    delete[] message;
     delete[] signature;
+
+    state.q = 10;
+    signature = shrincs_sign_stateful(message, sk, state);
+    is_valid = shrincs_verify(message, signature, WOTS_SIGN_LEN + state.q * N + N, pk);
+
+    EXPECT_TRUE(is_valid);
+
+    delete[] signature;
+
+    state.q = 100;
+    signature = shrincs_sign_stateful(message, sk, state);
+    is_valid = shrincs_verify(message, signature, WOTS_SIGN_LEN + state.q * N + N, pk);
+
+    EXPECT_TRUE(is_valid);
+
+    delete[] signature;
+
+    state.q = 205;
+    signature = shrincs_sign_stateful(message, sk, state);
+    is_valid = shrincs_verify(message, signature, WOTS_SIGN_LEN + state.q * N + N, pk);
+
+    EXPECT_TRUE(is_valid);
+
+    delete[] signature;
+
+    state.q = 206;
+    signature = shrincs_sign_stateful(message, sk, state);
+    is_valid = shrincs_verify(message, signature, WOTS_SIGN_LEN + (state.q - 1) * N + N, pk);
+
+    EXPECT_TRUE(is_valid);
+
+    delete[] signature;
+
+    // Must fail
+    state.q = 207;
+    try
+    {
+        signature = shrincs_sign_stateful(message, sk, state);
+        delete[] signature;
+        delete[] message;
+        EXPECT_TRUE(false);
+    }
+    catch(const std::exception& e)
+    {
+        // ...
+    }
+
+    delete[] message;
 }
 
 TEST(SHRINCSTest, StatelessSignVerify) {
