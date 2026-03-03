@@ -57,7 +57,7 @@ namespace FORS_C {
         unsigned char res[32];
         uint32_t tmp_indices[K];
 
-        setTypeAndClear(adrs, H_MSG);
+        setTypeAndClear(adrs, SL_H_MSG);
 
         for (uint32_t ctr = 0; ctr < UINT32_MAX; ctr++)
         {

@@ -297,7 +297,7 @@ namespace SHRINCS {
         SHA256_CTX ctx;
         SHA256_Init(&ctx);
 
-        setTypeAndClear(adrs, H_MSG);
+        setTypeAndClear(adrs, SL_H_MSG);
         ctx = sha256_add_to_ctx(ctx, adrs, 32);
         ctx = sha256_add_to_ctx(ctx, r, R_LEN);
         ctx = sha256_add_to_ctx(ctx, pk.seed.data(), N);

@@ -31,17 +31,20 @@ namespace AddressTypes
     inline constexpr uint32_t SF_WOTS_HASH = 0x0;
     inline constexpr uint32_t SF_WOTS_PK = 0x1;
     inline constexpr uint32_t SF_TREE = 0x2;
-    inline constexpr uint32_t SL_WOTS_HASH = 0x3;
-    inline constexpr uint32_t SL_WOTS_PK = 0x4;
-    inline constexpr uint32_t SL_TREE = 0x5;
+    inline constexpr uint32_t SF_WOTS_GRIND = 0x3;
+    inline constexpr uint32_t SF_H_MSG = 0x04;
+    inline constexpr uint32_t SF_WOTS_PRF = 0x05;
     inline constexpr uint32_t FORS_HASH = 0x6;
     inline constexpr uint32_t FORS_TREE = 0x7;
     inline constexpr uint32_t FORS_PK = 0x8;
-    inline constexpr uint32_t WOTS_GRIND = 0x9;
-    inline constexpr uint32_t FORS_PRF = 0x0A;
-    inline constexpr uint32_t H_MSG = 0x0B;
-    inline constexpr uint32_t WOTS_PRF = 0x0C;
-    inline constexpr uint32_t ROOT = 0x0D;
+    inline constexpr uint32_t FORS_PRF = 0x09;
+    inline constexpr uint32_t SL_WOTS_HASH = 0xA;
+    inline constexpr uint32_t SL_WOTS_PK = 0xB;
+    inline constexpr uint32_t SL_TREE = 0xC;
+    inline constexpr uint32_t SL_WOTS_GRIND = 0xD;
+    inline constexpr uint32_t SL_H_MSG = 0x0E;
+    inline constexpr uint32_t SL_WOTS_PRF = 0x0F;
+    inline constexpr uint32_t ROOT = 0x10;
 }
 
 #endif
