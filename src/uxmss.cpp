@@ -42,7 +42,7 @@ namespace UXMSS
 
     unsigned char* uxmss_auth_path(const unsigned char* sk_seed, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t q)
     {
-        unsigned char* auth = new unsigned char[q * N];
+        unsigned char* auth = new unsigned char[(q > HSF ? q - 1 : q) * N];
 
         setLayerAddress(adrs, 0);
         setTreeAddress(adrs, 0, 0);
@@ -135,6 +135,11 @@ namespace UXMSS
         setTreeAddress(adrs, 0, 0);
         auto wots_sig = wots_sign(message, 32, sk_seed, sk_prf, pk_seed, pk_root, hash_ctx, adrs, q, true, false);
         auto auth = uxmss_auth_path(sk_seed, hash_ctx, adrs, q);
+
+        if (q > HSF)
+        {
+            q -= 1;
+        }
 
         unsigned char* res = new unsigned char[WOTS_SIGN_LEN + q * N];
         memcpy(res, wots_sig, WOTS_SIGN_LEN);

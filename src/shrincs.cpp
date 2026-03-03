@@ -23,9 +23,7 @@ namespace SHRINCS {
             uint32_t leaf = idx & ((1 << H_PRIME) - 1);
             memcpy(idx_leaf + layer, &leaf, 4);
             idx >>= H_PRIME;
-
-            uint32_t tree = idx & ((1 << (HSL - (layer + 1) * H_PRIME)) - 1);
-            memcpy(idx_tree + layer, &tree, 4);
+            memcpy(idx_tree + layer, &idx, 4);
         }
     }
 
@@ -120,12 +118,17 @@ namespace SHRINCS {
         hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 16);
 
         auto uxmss_sig = UXMSS::uxmss_sign(message, sk.seed.data(), sk.prf.data(), sk.pk.seed.data(), sk.pk.root.data(), hash_ctx, adrs, q);
+        state.q = q;
+        state.valid = true;
+
+        if (q > HSF)
+        {
+            q -= 1;
+        }
 
         unsigned char* sig = new unsigned char[N + WOTS_SIGN_LEN + q * N];
         memcpy(sig, sk.sl.data(), N);
         memcpy(sig + N, uxmss_sig, WOTS_SIGN_LEN + q * N);
-        state.q = q;
-        state.valid = true;
 
         delete[] uxmss_sig;
         delete[] adrs;
@@ -152,6 +155,8 @@ namespace SHRINCS {
         FORS_C::fors_msg_to_indices(digest, indices);
         if (indices[K - 1] != 0)
         {
+            delete[] adrs;
+            delete[] digest;
             throw std::runtime_error("Fors message digest is not valid");
         }
 
@@ -206,11 +211,19 @@ namespace SHRINCS {
         const unsigned char* uxmss_sig = sig + N;
 
         uint32_t auth_len = sig_len - N - WOTS_SIGN_LEN;
-        uint32_t q = auth_len / N;
-        if (q < 1 || q > HSF + 1)
+
+        if (auth_len % N != 0) 
         {
             return false;
         }
+
+        uint32_t q_raw = auth_len / N;
+        if (q_raw < 1 || q_raw > HSF)
+        {
+            return false;
+        }
+
+        bool last_sf_level = !(q_raw < HSF);
 
         SHA256_CTX hash_ctx;
         SHA256_Init(&hash_ctx);
@@ -220,30 +233,40 @@ namespace SHRINCS {
         hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
         hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 16);
 
-        try
+        for (int j = 0; j < last_sf_level ? 2 : 1; j++)
         {
-            auto sf = UXMSS::uxmss_pk_from_sig(uxmss_sig, uxmss_sig + WOTS_SIGN_LEN, message, pk.seed.data(), pk.root.data(), hash_ctx, adrs, q);
+            try
+            {
+                auto sf = UXMSS::uxmss_pk_from_sig(uxmss_sig, uxmss_sig + WOTS_SIGN_LEN, message, pk.seed.data(), pk.root.data(), hash_ctx, adrs, last_sf_level ? HSF + j : q_raw);
 
-            unsigned char* root = new unsigned char[N];
-            setTypeAndClear(adrs, ROOT);
-            auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-            ctx = sha256_add_to_ctx(ctx, sf, N);
-            ctx = sha256_add_to_ctx(ctx, sl, N);
-            sha256_finalize(ctx, root);
+                unsigned char* root = new unsigned char[N];
+                setTypeAndClear(adrs, ROOT);
+                auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
+                ctx = sha256_add_to_ctx(ctx, sf, N);
+                ctx = sha256_add_to_ctx(ctx, sl, N);
+                sha256_finalize(ctx, root);
 
-            bool is_valid = memcmp(root, pk.root.data(), N) == 0;
+                bool is_valid = memcmp(root, pk.root.data(), N) == 0;
 
-            delete[] sf;
-            delete[] adrs;
-            delete[] sl;
-            delete[] root;
+                delete[] sf;
+                delete[] root;
 
-            return is_valid;
+                if (is_valid)
+                {
+                    delete[] adrs;
+                    delete[] sl;
+                    return true;
+                }
+            }
+            catch(const std::exception& e)
+            {
+                continue;
+            }
         }
-        catch(const std::exception& e)
-        {
-            return false;
-        }
+
+        delete[] adrs;
+        delete[] sl;
+        return false;
     }
 
     bool shrincs_verify_stateless(const unsigned char* message, const unsigned char* sig, PublicKey& pk)
@@ -288,6 +311,9 @@ namespace SHRINCS {
         FORS_C::fors_msg_to_indices(digest, indices);
         if (indices[K - 1] != 0)
         {
+            delete[] adrs;
+            delete[] sf;
+            delete[] digest;
             throw std::runtime_error("Fors message digest is not valid");
         }
 
@@ -299,11 +325,17 @@ namespace SHRINCS {
         setTreeAddress(adrs, 0, tree_idx[0] * pow(2, H_PRIME) + leaf_idx[0]);
 
         unsigned char* fors_pk;
-        try{
+        try
+        {
             fors_pk = FORS_C::fors_pk_from_sig(fors_sig, indices, hash_ctx, adrs);
         }
         catch(const std::exception& e)
         {
+            delete[] adrs;
+            delete[] sf;
+            delete[] digest;
+            delete[] tree_idx;
+            delete[] leaf_idx;
             return false;
         }
 
@@ -317,13 +349,19 @@ namespace SHRINCS {
             auto auth = xmss_sig + WOTS_SIGN_LEN;
             setLayerAddress(adrs, layer);
             setTreeAddress(adrs, 0, tree_idx[layer]);
-            try {
+            try 
+            {
                 unsigned char* new_msg = XMSS::xmss_pk_from_sig(wots_sig, auth, msg, pk.seed.data(), pk.root.data(), hash_ctx, adrs, H_PRIME, leaf_idx[layer]);
                 delete[] msg;
                 msg = new_msg;
             }
             catch(const std::exception& e)
             {
+                delete[] adrs;
+                delete[] sf;
+                delete[] digest;
+                delete[] tree_idx;
+                delete[] leaf_idx;
                 return false;
             }
         }

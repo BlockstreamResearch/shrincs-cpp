@@ -39,18 +39,16 @@ namespace WOTS_C
 
     unsigned char* wots_pk_gen(const unsigned char* sk_seed, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t keypair, bool sf)
     {
-        uint32_t WOTS_HASH, WOTS_PK, TREE;
+        uint32_t WOTS_HASH, WOTS_PK;
         if (sf)
         {
             WOTS_HASH = SF_WOTS_HASH;
             WOTS_PK = SF_WOTS_PK;
-            TREE = SF_TREE;
         }
         else
         {
             WOTS_HASH = SL_WOTS_HASH;
             WOTS_PK = SL_WOTS_PK;
-            TREE = SL_TREE;
         }
 
         unsigned char pk[L][N];
@@ -91,12 +89,13 @@ namespace WOTS_C
         return res;
     }
 
-    uint32_t wots_grind(const unsigned char* message, const unsigned char* pk_seed, unsigned char* adrs, unsigned char* msg_out)
+    uint32_t wots_grind(const unsigned char* message, const unsigned char* pk_seed, unsigned char* adrs, uint32_t keypair, unsigned char* msg_out)
     {
         SHA256_CTX ctx;
         SHA256_Init(&ctx);
 
         setTypeAndClear(adrs, WOTS_GRIND);
+        setKeyPairAddress(adrs, keypair);
         ctx = sha256_add_to_ctx(ctx, adrs, 32);
         ctx = sha256_add_to_ctx(ctx, pk_seed, N);
         ctx = sha256_add_to_ctx(ctx, message, N);
@@ -126,12 +125,13 @@ namespace WOTS_C
         throw std::runtime_error("Unnable to find valid wots message digest");
     }
 
-    bool wots_digest(const unsigned char* message, const unsigned char* pk_seed, uint32_t ctr, unsigned char* adrs, unsigned char* msg_out)
+    bool wots_digest(const unsigned char* message, const unsigned char* pk_seed, uint32_t ctr, unsigned char* adrs, uint32_t keypair, unsigned char* msg_out)
     {
         SHA256_CTX ctx;
         SHA256_Init(&ctx);
 
         setTypeAndClear(adrs, WOTS_GRIND);
+        setKeyPairAddress(adrs, keypair);
         ctx = sha256_add_to_ctx(ctx, adrs, 32);
         ctx = sha256_add_to_ctx(ctx, pk_seed, N);
         ctx = sha256_add_to_ctx(ctx, message, N);
@@ -180,7 +180,7 @@ namespace WOTS_C
         }
 
         unsigned char msg[L];
-        uint32_t ctr = wots_grind(digest, pk_seed, adrs, msg);
+        uint32_t ctr = wots_grind(digest, pk_seed, adrs, keypair, msg);
 
         memcpy(sig, r, R_LEN);
         uint32_t offset = R_LEN;
@@ -259,10 +259,11 @@ namespace WOTS_C
         }
 
         unsigned char msg[L];
-        bool valid = wots_digest(digest, pk_seed, ctr, adrs, msg);
+        bool valid = wots_digest(digest, pk_seed, ctr, adrs, keypair, msg);
 
         if (!valid)
         {
+            delete[] digest;
             throw std::runtime_error("Wots message digest is not valid");
         }
 
