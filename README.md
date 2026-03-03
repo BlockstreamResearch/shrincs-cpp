@@ -1,6 +1,8 @@
 # SHRINCS
 C++ implementation of the [SHRINCS](https://github.com/BlockstreamResearch/HB-Liquid) post-quantum signature scheme.
 
+> *⚠️ This project is a work in progress and is provided as-is for research, learning, and experimentation. It is not production-ready and has not undergone a formal security audit, code review, or verification process. This library may be incorrect, incomplete, or insecure.*
+
 ## Requirements
 Before building, run:
 
