@@ -233,7 +233,7 @@ namespace SHRINCS {
         hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
         hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 16);
 
-        for (int j = 0; j < last_sf_level ? 2 : 1; j++)
+        for (int j = 0; j < (last_sf_level ? 2 : 1); j++)
         {
             try
             {
