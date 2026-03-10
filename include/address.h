@@ -5,6 +5,17 @@
 #include <cstring>
 #include <arpa/inet.h>
 
+#ifdef __APPLE__
+    #include <machine/endian.h>
+    #include <libkern/OSByteOrder.h>
+    #define htobe64(x) OSSwapHostToBigInt64(x)
+    #define htobe32(x) OSSwapHostToBigInt32(x)
+    #define be64toh(x) OSSwapBigToHostInt64(x)
+    #define be32toh(x) OSSwapBigToHostInt32(x)
+#else
+    #include <endian.h>
+#endif
+
 namespace Address 
 {
     void setLayerAddress(unsigned char* adrs, uint32_t layer);
