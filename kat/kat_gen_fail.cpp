@@ -231,7 +231,6 @@ int main()
         unsigned char seed_alt[3*N];
         randombytes(seed_alt, 3*N);
 
-        // unsigned char* msg = new unsigned char[mlen];
         std::vector<unsigned char> msg = std::vector<unsigned char>(mlen);
         randombytes(msg.data(), mlen);
 
