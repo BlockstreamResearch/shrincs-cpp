@@ -45,7 +45,7 @@ namespace FORS_C {
         }
     }
 
-    uint32_t fors_grind(const unsigned char* message, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, unsigned char* adrs, uint32_t* out, unsigned char* digest_out, unsigned char* r_out)
+    uint32_t fors_grind(const unsigned char* message, uint32_t message_len, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, unsigned char* adrs, uint32_t* out, unsigned char* digest_out, unsigned char* r_out)
     {
         SHA256_CTX ctx;
         SHA256_Init(&ctx);
@@ -61,13 +61,13 @@ namespace FORS_C {
 
         for (uint32_t ctr = 0; ctr < UINT32_MAX; ctr++)
         {
-            prf_msg(sk_prf, pk_seed, opt_rand, message, 32, true, ctr, R_LEN, r_out);
+            prf_msg(sk_prf, pk_seed, opt_rand, message, message_len, true, ctr, R_LEN, r_out);
 
             auto ctx_ = sha256_add_to_ctx(ctx, adrs, 32);
             ctx_ = sha256_add_to_ctx(ctx_, r_out, R_LEN);
             ctx_ = sha256_add_to_ctx(ctx_, pk_seed, N);
             ctx_ = sha256_add_to_ctx(ctx_, pk_root, N);
-            ctx_ = sha256_add_to_ctx(ctx_, message, 32);
+            ctx_ = sha256_add_to_ctx(ctx_, message, message_len);
 
             sha256_finalize_32(ctx_, res);
             fors_msg_to_indices(res, tmp_indices);
@@ -149,14 +149,14 @@ namespace FORS_C {
         return auth;
     }
 
-    unsigned char* fors_sign(const unsigned char* message, const unsigned char* sk_seed, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, SHA256_CTX hash_ctx, unsigned char* adrs, unsigned char* digest_out)
+    unsigned char* fors_sign(const unsigned char* message, uint32_t message_len, const unsigned char* sk_seed, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, SHA256_CTX hash_ctx, unsigned char* adrs, unsigned char* digest_out)
     {
         unsigned char* sig = new unsigned char[FORS_SIGN_LEN];
 
         unsigned char* r = new unsigned char[R_LEN];
 
         uint32_t indices[K];
-        fors_grind(message, sk_prf, pk_seed, pk_root, adrs, indices, digest_out, r);
+        fors_grind(message, message_len, sk_prf, pk_seed, pk_root, adrs, indices, digest_out, r);
 
         memcpy(sig, r, R_LEN);
         uint32_t offset = R_LEN;

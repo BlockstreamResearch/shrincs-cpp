@@ -4,7 +4,7 @@
 using namespace SHRINCS;
 
 TEST(WOTSTest, SignVerify) {
-    unsigned char* message = new unsigned char[32]();
+    std::vector<unsigned char> message = std::vector<unsigned char>(32, 0);
 
     unsigned char sk_seed[N];
     unsigned char sk_prf[N];
@@ -19,21 +19,20 @@ TEST(WOTSTest, SignVerify) {
     hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
     hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 16);
 
-    auto signature = WOTS_C::wots_sign(message, 32, sk_seed, sk_prf, pk_seed, pk_root, hash_ctx, adrs, 10, true, false);
-    auto pkey = WOTS_C::wots_pk_from_sig(signature, message, 32, pk_seed, pk_root, hash_ctx, adrs, 10, true, false);
+    auto signature = WOTS_C::wots_sign(message.data(), message.size(), sk_seed, sk_prf, pk_seed, pk_root, hash_ctx, adrs, 10, true, false);
+    auto pkey = WOTS_C::wots_pk_from_sig(signature, message.data(), message.size(), pk_seed, pk_root, hash_ctx, adrs, 10, true, false);
     auto ex_pkey = WOTS_C::wots_pk_gen(sk_seed, hash_ctx, adrs, 10, true);
 
     EXPECT_TRUE((memcmp(pkey, ex_pkey, N) == 0));
 
     delete[] adrs;
-    delete[] message;
     delete[] signature;
     delete[] pkey;
     delete[] ex_pkey;
 }
 
 TEST(XMSSTest, SignVerify) {
-    unsigned char* message = new unsigned char[32]();
+    std::vector<unsigned char> message = std::vector<unsigned char>(32, 0);
 
     unsigned char sk_seed[N];
     unsigned char sk_prf[N];
@@ -48,21 +47,20 @@ TEST(XMSSTest, SignVerify) {
     hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
     hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 16);
 
-    auto signature = XMSS::xmss_sign(message, sk_seed, sk_prf, pk_seed, pk_root, hash_ctx, adrs, H_PRIME, 2);
-    auto pkey = XMSS::xmss_pk_from_sig(signature, signature + WOTS_SIGN_LEN, message, pk_seed, pk_root, hash_ctx, adrs, H_PRIME, 2);
+    auto signature = XMSS::xmss_sign(message.data(), sk_seed, sk_prf, pk_seed, pk_root, hash_ctx, adrs, H_PRIME, 2);
+    auto pkey = XMSS::xmss_pk_from_sig(signature, signature + WOTS_SIGN_LEN, message.data(), pk_seed, pk_root, hash_ctx, adrs, H_PRIME, 2);
     auto root = XMSS::xmss_root(sk_seed, hash_ctx, adrs, H_PRIME);
 
     EXPECT_TRUE((memcmp(pkey, root, N) == 0));
 
     delete[] adrs;
-    delete[] message;
     delete[] signature;
     delete[] pkey;
     delete[] root;
 }
 
 TEST(UXMSSTest, SignVerify) {
-    unsigned char* message = new unsigned char[32]();
+    std::vector<unsigned char> message = std::vector<unsigned char>(32, 0);
 
     unsigned char sk_seed[N];
     unsigned char sk_prf[N];
@@ -77,14 +75,13 @@ TEST(UXMSSTest, SignVerify) {
     hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
     hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 16);
 
-    auto signature = UXMSS::uxmss_sign(message, sk_seed, sk_prf, pk_seed, pk_root, hash_ctx, adrs, 2);
-    auto pkey = UXMSS::uxmss_pk_from_sig(signature, signature + WOTS_SIGN_LEN, message, pk_seed, pk_root, hash_ctx, adrs, 2);
+    auto signature = UXMSS::uxmss_sign(message.data(), message.size(), sk_seed, sk_prf, pk_seed, pk_root, hash_ctx, adrs, 2);
+    auto pkey = UXMSS::uxmss_pk_from_sig(signature, signature + WOTS_SIGN_LEN, message.data(), message.size(), pk_seed, pk_root, hash_ctx, adrs, 2);
     auto root = UXMSS::uxmss_root(sk_seed, hash_ctx, adrs);
 
     EXPECT_TRUE((memcmp(pkey, root, N) == 0));
 
     delete[] adrs;
-    delete[] message;
     delete[] signature;
     delete[] pkey;
     delete[] root;
@@ -110,7 +107,7 @@ TEST(SHRINCSTest, StatefulSignVerify) {
 
     shrincs_key_gen(pk, sk, state);
 
-    unsigned char* message = new unsigned char[32]();
+    std::vector<unsigned char> message = std::vector<unsigned char>(32, 0);
 
     auto signature = shrincs_sign_stateful(message, sk, state);
     auto is_valid = shrincs_verify(message, signature, WOTS_SIGN_LEN + state.q * N + N, pk);
@@ -157,15 +154,12 @@ TEST(SHRINCSTest, StatefulSignVerify) {
     {
         signature = shrincs_sign_stateful(message, sk, state);
         delete[] signature;
-        delete[] message;
         EXPECT_TRUE(false);
     }
     catch(const std::exception& e)
     {
         // ...
     }
-
-    delete[] message;
 }
 
 TEST(SHRINCSTest, StatelessSignVerify) {
@@ -175,14 +169,13 @@ TEST(SHRINCSTest, StatelessSignVerify) {
 
     shrincs_key_gen(pk, sk, state);
 
-    unsigned char* message = new unsigned char[32]();
+    std::vector<unsigned char> message = std::vector<unsigned char>(32, 0);
 
     auto signature = shrincs_sign_stateless(message, sk);
     bool is_valid = shrincs_verify(message, signature, N + FORS_SIGN_LEN + XMSS_SIGN_LEN * D, pk);
 
     EXPECT_TRUE(is_valid);
 
-    delete[] message;
     delete[] signature;
 }
 

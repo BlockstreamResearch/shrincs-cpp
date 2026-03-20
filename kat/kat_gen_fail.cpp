@@ -231,8 +231,9 @@ int main()
         unsigned char seed_alt[3*N];
         randombytes(seed_alt, 3*N);
 
-        unsigned char* msg = new unsigned char[mlen];
-        randombytes(msg, mlen);
+        // unsigned char* msg = new unsigned char[mlen];
+        std::vector<unsigned char> msg = std::vector<unsigned char>(mlen);
+        randombytes(msg.data(), mlen);
 
         //Wrong message
         for (int ci = 0; ci < N_CORRUPTIONS; ++ci)
@@ -244,8 +245,9 @@ int main()
                 uint32_t slen = sf_siglen(1);
 
                 uint32_t off; unsigned char mask;
-                unsigned char* bad_msg = corrupt_within(msg, mlen, off, mask);
-                if(memcmp(bad_msg, msg, mlen) == 0) fprintf(stderr, "WARN: identical messages\n");
+                unsigned char* bad_msg_ptr = corrupt_within(msg.data(), mlen, off, mask);
+                std::vector<unsigned char> bad_msg = std::vector<unsigned char>(bad_msg_ptr, bad_msg_ptr + mlen);
+                if(memcmp(bad_msg.data(), msg.data(), mlen) == 0) fprintf(stderr, "WARN: identical messages\n");
 
                 if (off < 32)
                     fprintf(stderr, "INFO: corruption within first 32 bytes at byte=%u\n", off);
@@ -258,11 +260,10 @@ int main()
                          "SHRINCS-%s stateful wrong-msg byte=%u mask=0x%02x mlen=%zu",
                          VARIANT_NAME, off, mask, mlen);
                 write_fail_record(f, count++, lbl, seed,
-                                  mlen, msg, pk, sk, sig, slen,
-                                  "msg corrupted", bad_msg, mlen, ok);
+                                  mlen, msg.data(), pk, sk, sig, slen,
+                                  "msg corrupted", bad_msg.data(), mlen, ok);
                 if (ok) fprintf(stderr, "WARN [%s]: expected Fail, got Pass\n", lbl);
                 delete[] sig;
-                delete[] bad_msg;
             }
 
             {
@@ -271,7 +272,8 @@ int main()
                 unsigned char* sig = shrincs_sign_stateless(msg, sk);
 
                 uint32_t off; unsigned char mask;
-                unsigned char* bad_msg = corrupt_within(msg, mlen, off, mask);
+                unsigned char* bad_msg_ptr = corrupt_within(msg.data(), mlen, off, mask);
+                std::vector<unsigned char> bad_msg = std::vector<unsigned char>(bad_msg_ptr, bad_msg_ptr + mlen);
                 if (off < 32)
                     fprintf(stderr, "INFO: corruption within first 32 bytes at byte=%u\n", off);
                 else
@@ -284,11 +286,10 @@ int main()
                          "SHRINCS-%s stateless wrong-msg byte=%u mask=0x%02x mlen=%zu",
                          VARIANT_NAME, off, mask, mlen);
                 write_fail_record(f, count++, lbl, seed,
-                                  mlen, msg, pk, sk, sig, SL_SIZE,
-                                  "msg corrupted", bad_msg, mlen, ok);
+                                  mlen, msg.data(), pk, sk, sig, SL_SIZE,
+                                  "msg corrupted", bad_msg.data(), mlen, ok);
                 if (ok) fprintf(stderr, "WARN [%s]: expected Fail, got Pass\n", lbl);
                 delete[] sig;
-                delete[] bad_msg;
             }
         }
 
@@ -315,7 +316,7 @@ int main()
                          "SHRINCS-%s stateful wrong-pk ci=%d mlen=%zu",
                          VARIANT_NAME, ci, mlen);
                 write_fail_record(f, count++, lbl, seed,
-                                  mlen, msg, pk, sk, sig, slen,
+                                  mlen, msg.data(), pk, sk, sig, slen,
                                   "pk corrupted", pk2_bytes, 2*N, ok);
                 if (ok) fprintf(stderr, "WARN [%s]: expected Fail, got Pass\n", lbl);
                 delete[] sig;
@@ -343,7 +344,7 @@ int main()
                          "SHRINCS-%s stateless wrong-pk ci=%d mlen=%zu",
                          VARIANT_NAME, ci, mlen);
                 write_fail_record(f, count++, lbl, seed,
-                                  mlen, msg, pk, sk, sig, SL_SIZE,
+                                  mlen, msg.data(), pk, sk, sig, SL_SIZE,
                                   "pk corrupted", pk2_bytes, 2*N, ok);
                 if (ok) fprintf(stderr, "WARN [%s]: expected Fail, got Pass\n", lbl);
                 delete[] sig;
@@ -372,7 +373,7 @@ int main()
                          "SHRINCS-%s stateful corrupted-sig byte=%u mask=0x%02x mlen=%zu",
                          VARIANT_NAME, off, mask, mlen);
                 write_fail_record(f, count++, lbl, seed,
-                                  mlen, msg, pk, sk, sig, slen,
+                                  mlen, msg.data(), pk, sk, sig, slen,
                                   "sig corrupted", bad, slen, ok);
                 if (ok) fprintf(stderr, "WARN [%s]: expected Fail, got Pass\n", lbl);
                 delete[] bad;
@@ -398,7 +399,7 @@ int main()
                          "SHRINCS-%s stateless corrupted-sig byte=%u mask=0x%02x mlen=%zu",
                          VARIANT_NAME, off, mask, mlen);
                 write_fail_record(f, count++, lbl, seed,
-                                  mlen, msg, pk, sk, sig, SL_SIZE,
+                                  mlen, msg.data(), pk, sk, sig, SL_SIZE,
                                   "sig corrupted", bad, SL_SIZE, ok);
                 if (ok) fprintf(stderr, "WARN [%s]: expected Fail, got Pass\n", lbl);
                 delete[] bad;
@@ -419,7 +420,7 @@ int main()
                      "SHRINCS-%s cross-type stateless-sig-as-stateful mlen=%zu",
                      VARIANT_NAME, mlen);
             write_fail_record(f, count++, lbl, seed,
-                              mlen, msg, pk, sk, sig, SL_SIZE,
+                              mlen, msg.data(), pk, sk, sig, SL_SIZE,
                               "sig corrupted (truncated to MAX_SF_SIZE)", sig, MAX_SF_SIZE, ok);
             if (ok) fprintf(stderr, "WARN [%s]: expected Fail, got Pass\n", lbl);
             delete[] sig;
@@ -439,11 +440,9 @@ int main()
             snprintf(lbl, sizeof(lbl),
                      "SHRINCS-%s stateful invalid-state (valid=false) mlen=%zu",
                      VARIANT_NAME, mlen);
-            write_throw_record(f, count++, lbl, seed, mlen, msg, pk, sk, threw);
+            write_throw_record(f, count++, lbl, seed, mlen, msg.data(), pk, sk, threw);
             if (!threw) fprintf(stderr, "WARN [%s]: expected throw, did not throw\n", lbl);
         }
-
-        delete[] msg;
     }
 
     // Counter exhausted (once, outside message loop)
@@ -451,8 +450,8 @@ int main()
         unsigned char seed[3*N];
         randombytes(seed, 3*N);
 
-        unsigned char msg[32] = {};
-        randombytes(msg,32);
+        std::vector<unsigned char> msg = std::vector<unsigned char>(32);
+        randombytes(msg.data(),32);
 
         PublicKey pk; SecretKey sk; State st;
         keygen(seed, pk, sk, st);
@@ -473,7 +472,7 @@ int main()
         snprintf(lbl, sizeof(lbl),
                  "SHRINCS-%s stateful counter-exhausted q > HSF+1=%u",
                  VARIANT_NAME, HSF + 1);
-        write_throw_record(f, count++, lbl, seed, 32, msg, pk, sk, threw);
+        write_throw_record(f, count++, lbl, seed, 32, msg.data(), pk, sk, threw);
         if (!threw) fprintf(stderr, "WARN [%s]: expected throw, did not throw\n", lbl);
     }
 
