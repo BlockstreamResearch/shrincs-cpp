@@ -72,7 +72,7 @@ int main()
     // print_hex(sk.prf.data(), N);
     // print_hex(sk.seed.data(), N);
 
-    unsigned char* message = new unsigned char[32]();
+    std::vector<unsigned char> message = std::vector<unsigned char>(32, 0);
 
     // hexStringToBytes("8a276ceb95d10ed7705c9e25c9987cb4b1eaf73bcae7f922058c4e46e906a778", message);
 

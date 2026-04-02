@@ -43,11 +43,11 @@ namespace SHRINCS {
 
     void shrincs_key_gen(PublicKey& out_pk, SecretKey& out_sk, State& out_state);
     void shrincs_restore(const unsigned char* seed, PublicKey& out_pk, SecretKey& out_sk, State& out_state);
-    unsigned char* shrincs_sign_stateful(const unsigned char* message, SecretKey& sk, State& state);
-    unsigned char* shrincs_sign_stateless(const unsigned char* message, SecretKey& sk);
-    bool shrincs_verify_stateful(const unsigned char* message, const unsigned char* sig, uint32_t sig_len, PublicKey& pk);
-    bool shrincs_verify_stateless(const unsigned char* message, const unsigned char* sig, PublicKey& pk);
-    bool shrincs_verify(const unsigned char* message, const unsigned char* sig, uint32_t sig_len, PublicKey& pk);
+    unsigned char* shrincs_sign_stateful(const std::vector<unsigned char> message, SecretKey& sk, State& state);
+    unsigned char* shrincs_sign_stateless(const std::vector<unsigned char> message, SecretKey& sk);
+    bool shrincs_verify_stateful(const std::vector<unsigned char> message, const unsigned char* sig, uint32_t sig_len, PublicKey& pk);
+    bool shrincs_verify_stateless(const std::vector<unsigned char> message, const unsigned char* sig, PublicKey& pk);
+    bool shrincs_verify(const std::vector<unsigned char> message, const unsigned char* sig, uint32_t sig_len, PublicKey& pk);
 }
 
 #endif

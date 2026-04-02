@@ -110,7 +110,8 @@ static void write_record(FILE* f, int count, const char* label,
 
 static void advance_to(SecretKey& sk, State& st, uint32_t target_q)
 {
-    unsigned char dummy[32] = {};
+    std::vector<unsigned char> dummy = std::vector<unsigned char>(32, 0);
+    
     while (st.q < target_q - 1) {
         unsigned char* tmp = shrincs_sign_stateful(dummy, sk, st);
         delete[] tmp;
@@ -161,8 +162,8 @@ int main()
         unsigned char seed[3*N];
         randombytes(seed, 3*N);
 
-        unsigned char* msg = new unsigned char[mlen];
-        randombytes(msg, mlen);
+        std::vector<unsigned char> msg = std::vector<unsigned char>(mlen);
+        randombytes(msg.data(), mlen);
 
         {
             PublicKey pk; SecretKey sk; State st;
@@ -180,7 +181,7 @@ int main()
             char lbl[128];
             snprintf(lbl, sizeof(lbl),
                      "SHRINCS-%s stateless mlen=%zu", VARIANT_NAME, mlen);
-            write_record(f, count++, lbl, seed, mlen, msg, pk, sk, sig, SL_SIZE, ok);
+            write_record(f, count++, lbl, seed, mlen, msg.data(), pk, sk, sig, SL_SIZE, ok);
             delete[] sig;
         }
 
@@ -207,11 +208,9 @@ int main()
             snprintf(lbl, sizeof(lbl),
                      "SHRINCS-%s stateful q=%u mlen=%zu",
                      VARIANT_NAME, target_q, mlen);
-            write_record(f, count++, lbl, seed, mlen, msg, pk, sk, sig, slen, ok);
+            write_record(f, count++, lbl, seed, mlen, msg.data(), pk, sk, sig, slen, ok);
             delete[] sig;
         }
-
-        delete[] msg;
     }
 
     fprintf(f, "# Total records: %d\n", count);

@@ -117,8 +117,8 @@ int main()
         unsigned char seed[3*N];
         randombytes(seed, 3*N);
 
-        unsigned char* msg = new unsigned char[mlen];
-        randombytes(msg, mlen);
+        std::vector<unsigned char> msg = std::vector<unsigned char>(mlen);
+        randombytes(msg.data(), mlen);
 
         {
             PublicKey pk; SecretKey sk; State st;
@@ -128,7 +128,8 @@ int main()
 
             uint32_t off_before; unsigned char mask_before;
             random_offset_in(0, 32, off_before, mask_before);
-            unsigned char* bad_before = corrupt_at(msg, mlen, off_before, mask_before);
+            unsigned char* bad_before_ptr = corrupt_at(msg.data(), mlen, off_before, mask_before);
+            std::vector<unsigned char> bad_before = std::vector<unsigned char>(bad_before_ptr, bad_before_ptr + mlen);
 
             bool ok_before = false;
             try { ok_before = shrincs_verify(bad_before, sig, slen, pk); }
@@ -137,14 +138,15 @@ int main()
             char lbl[128];
             snprintf(lbl, sizeof(lbl),
                      "stateful q = 1 corrupt before byte32 mlen=%zu", mlen);
-            write_record(f, count++, lbl, seed, mlen, msg, pk, sig, slen,
-                         bad_before, off_before, mask_before, ok_before);
+            write_record(f, count++, lbl, seed, mlen, msg.data(), pk, sig, slen,
+                         bad_before.data(), off_before, mask_before, ok_before);
             if (ok_before)
                 fprintf(stderr, "Unexpected Pass: corruption before byte 32 was ignored.\n");
 
             uint32_t off_after; unsigned char mask_after;
             random_offset_in(32, mlen, off_after, mask_after);
-            unsigned char* bad_after = corrupt_at(msg, mlen, off_after, mask_after);
+            unsigned char* bad_after_ptr = corrupt_at(msg.data(), mlen, off_after, mask_after);
+            std::vector<unsigned char> bad_after = std::vector<unsigned char>(bad_after_ptr, bad_after_ptr + mlen);
 
             bool ok_after = false;
             try { ok_after = shrincs_verify(bad_after, sig, slen, pk); }
@@ -152,16 +154,14 @@ int main()
 
             snprintf(lbl, sizeof(lbl),
                      "stateful q = 1 corrupt after byte32 mlen=%zu", mlen);
-            write_record(f, count++, lbl, seed, mlen, msg, pk, sig, slen,
-                         bad_after, off_after, mask_after, ok_after);
+            write_record(f, count++, lbl, seed, mlen, msg.data(), pk, sig, slen,
+                         bad_after.data(), off_after, mask_after, ok_after);
             if (ok_after)
                 fprintf(stderr,
                         "Bug confirmation: stateful corruption at byte=%u (after 32) "
                         "was not detected. mlen=%zu\n", off_after, mlen);
 
             delete[] sig;
-            delete[] bad_before;
-            delete[] bad_after;
         }
 
         {
@@ -171,7 +171,8 @@ int main()
 
             uint32_t off_before; unsigned char mask_before;
             random_offset_in(0, 32, off_before, mask_before);
-            unsigned char* bad_before = corrupt_at(msg, mlen, off_before, mask_before);
+            unsigned char* bad_before_ptr = corrupt_at(msg.data(), mlen, off_before, mask_before);
+            std::vector<unsigned char> bad_before = std::vector<unsigned char>(bad_before_ptr, bad_before_ptr + mlen);
 
             bool ok_before = false;
             try { ok_before = shrincs_verify(bad_before, sig, SL_SIZE, pk); }
@@ -180,14 +181,15 @@ int main()
             char lbl[128];
             snprintf(lbl, sizeof(lbl),
                      "stateless corrupt before byte32 mlen=%zu", mlen);
-            write_record(f, count++, lbl, seed, mlen, msg, pk, sig, SL_SIZE,
-                         bad_before, off_before, mask_before, ok_before);
+            write_record(f, count++, lbl, seed, mlen, msg.data(), pk, sig, SL_SIZE,
+                         bad_before.data(), off_before, mask_before, ok_before);
             if (ok_before)
                 fprintf(stderr, "Unexpected Pass: corruption before byte 32 was ignored.\n");
 
             uint32_t off_after; unsigned char mask_after;
             random_offset_in(32, mlen, off_after, mask_after);
-            unsigned char* bad_after = corrupt_at(msg, mlen, off_after, mask_after);
+            unsigned char* bad_after_ptr = corrupt_at(msg.data(), mlen, off_after, mask_after);
+            std::vector<unsigned char> bad_after = std::vector<unsigned char>(bad_after_ptr, bad_after_ptr + mlen);
 
             bool ok_after = false;
             try { ok_after = shrincs_verify(bad_after, sig, SL_SIZE, pk); }
@@ -195,19 +197,15 @@ int main()
 
             snprintf(lbl, sizeof(lbl),
                      "stateless corrupt after byte32 mlen=%zu", mlen);
-            write_record(f, count++, lbl, seed, mlen, msg, pk, sig, SL_SIZE,
-                         bad_after, off_after, mask_after, ok_after);
+            write_record(f, count++, lbl, seed, mlen, msg.data(), pk, sig, SL_SIZE,
+                         bad_after.data(), off_after, mask_after, ok_after);
             if (ok_after)
                 fprintf(stderr,
                         "Bug confirmation: stateless corruption at byte=%u (after 32) "
                         "was not detected! mlen=%zu\n", off_after, mlen);
 
             delete[] sig;
-            delete[] bad_before;
-            delete[] bad_after;
         }
-
-        delete[] msg;
     }
     
     return 0;

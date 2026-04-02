@@ -91,7 +91,7 @@ namespace WOTS_C
         return res;
     }
 
-    uint32_t wots_grind(const unsigned char* message, const unsigned char* pk_seed, unsigned char* adrs, uint32_t keypair, unsigned char* msg_out, bool sf)
+    uint32_t wots_grind(const unsigned char* message, uint32_t message_len, const unsigned char* pk_seed, unsigned char* adrs, uint32_t keypair, unsigned char* msg_out, bool sf)
     {
         SHA256_CTX ctx;
         SHA256_Init(&ctx);
@@ -108,7 +108,7 @@ namespace WOTS_C
         setKeyPairAddress(adrs, keypair);
         ctx = sha256_add_to_ctx(ctx, adrs, 32);
         ctx = sha256_add_to_ctx(ctx, pk_seed, N);
-        ctx = sha256_add_to_ctx(ctx, message, N);
+        ctx = sha256_add_to_ctx(ctx, message, message_len);
 
         unsigned char res[N];
         unsigned char tmp_msg[L];
@@ -135,7 +135,7 @@ namespace WOTS_C
         throw std::runtime_error("Unnable to find valid wots message digest");
     }
 
-    bool wots_digest(const unsigned char* message, const unsigned char* pk_seed, uint32_t ctr, unsigned char* adrs, uint32_t keypair, unsigned char* msg_out, bool sf)
+    bool wots_digest(const unsigned char* message, uint32_t message_len, const unsigned char* pk_seed, uint32_t ctr, unsigned char* adrs, uint32_t keypair, unsigned char* msg_out, bool sf)
     {
         SHA256_CTX ctx;
         SHA256_Init(&ctx);
@@ -152,7 +152,7 @@ namespace WOTS_C
         setKeyPairAddress(adrs, keypair);
         ctx = sha256_add_to_ctx(ctx, adrs, 32);
         ctx = sha256_add_to_ctx(ctx, pk_seed, N);
-        ctx = sha256_add_to_ctx(ctx, message, N);
+        ctx = sha256_add_to_ctx(ctx, message, message_len);
 
         uint32_t ctr_be = htonl(ctr);
         ctx = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
@@ -212,7 +212,7 @@ namespace WOTS_C
         }
 
         unsigned char msg[L];
-        uint32_t ctr = wots_grind(digest, pk_seed, adrs, keypair, msg, sf);
+        uint32_t ctr = wots_grind(digest, N, pk_seed, adrs, keypair, msg, sf);
 
         memcpy(sig, r, R_LEN);
         uint32_t offset = R_LEN;
@@ -293,7 +293,7 @@ namespace WOTS_C
         }
 
         unsigned char msg[L];
-        bool valid = wots_digest(digest, pk_seed, ctr, adrs, keypair, msg, sf);
+        bool valid = wots_digest(digest, N, pk_seed, ctr, adrs, keypair, msg, sf);
 
         if (!valid)
         {

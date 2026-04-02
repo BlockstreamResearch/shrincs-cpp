@@ -95,7 +95,7 @@ namespace SHRINCS {
         delete[] pk_sf;
     }
 
-    unsigned char* shrincs_sign_stateful(const unsigned char* message, SecretKey& sk, State& state)
+    unsigned char* shrincs_sign_stateful(const std::vector<unsigned char> message, SecretKey& sk, State& state)
     {
         if (!state.valid) {
             throw std::runtime_error("Invalid state");
@@ -117,7 +117,7 @@ namespace SHRINCS {
         hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
         hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 16);
 
-        auto uxmss_sig = UXMSS::uxmss_sign(message, sk.seed.data(), sk.prf.data(), sk.pk.seed.data(), sk.pk.root.data(), hash_ctx, adrs, q);
+        auto uxmss_sig = UXMSS::uxmss_sign(message.data(), message.size(), sk.seed.data(), sk.prf.data(), sk.pk.seed.data(), sk.pk.root.data(), hash_ctx, adrs, q);
         state.q = q;
         state.valid = true;
 
@@ -135,7 +135,7 @@ namespace SHRINCS {
         return sig;
     }
 
-    unsigned char* shrincs_sign_stateless(const unsigned char* message, SecretKey& sk)
+    unsigned char* shrincs_sign_stateless(const std::vector<unsigned char> message, SecretKey& sk)
     {
         unsigned char* adrs = new unsigned char[32]();
 
@@ -149,7 +149,7 @@ namespace SHRINCS {
 
         unsigned char* digest = new unsigned char[32];
 
-        auto fors_sig = FORS_C::fors_sign(message, sk.seed.data(), sk.prf.data(), sk.pk.seed.data(), sk.pk.root.data(), hash_ctx, adrs, digest);
+        auto fors_sig = FORS_C::fors_sign(message.data(), message.size(), sk.seed.data(), sk.prf.data(), sk.pk.seed.data(), sk.pk.root.data(), hash_ctx, adrs, digest);
 
         uint32_t indices[K];
         FORS_C::fors_msg_to_indices(digest, indices);
@@ -202,7 +202,7 @@ namespace SHRINCS {
         return sig;
     }
 
-    bool shrincs_verify_stateful(const unsigned char* message, const unsigned char* sig, uint32_t sig_len, PublicKey& pk)
+    bool shrincs_verify_stateful(const std::vector<unsigned char> message, const unsigned char* sig, uint32_t sig_len, PublicKey& pk)
     {
         unsigned char* adrs = new unsigned char[32]();
         unsigned char* sl = new unsigned char[N];
@@ -237,7 +237,7 @@ namespace SHRINCS {
         {
             try
             {
-                auto sf = UXMSS::uxmss_pk_from_sig(uxmss_sig, uxmss_sig + WOTS_SIGN_LEN, message, pk.seed.data(), pk.root.data(), hash_ctx, adrs, last_sf_level ? HSF + j : q_raw);
+                auto sf = UXMSS::uxmss_pk_from_sig(uxmss_sig, uxmss_sig + WOTS_SIGN_LEN, message.data(), message.size(), pk.seed.data(), pk.root.data(), hash_ctx, adrs, last_sf_level ? HSF + j : q_raw);
 
                 unsigned char* root = new unsigned char[N];
                 setTypeAndClear(adrs, ROOT);
@@ -269,7 +269,7 @@ namespace SHRINCS {
         return false;
     }
 
-    bool shrincs_verify_stateless(const unsigned char* message, const unsigned char* sig, PublicKey& pk)
+    bool shrincs_verify_stateless(const std::vector<unsigned char> message, const unsigned char* sig, PublicKey& pk)
     {
         unsigned char* adrs = new unsigned char[32]();
         unsigned char* sf = new unsigned char[N];
@@ -302,7 +302,7 @@ namespace SHRINCS {
         ctx = sha256_add_to_ctx(ctx, r, R_LEN);
         ctx = sha256_add_to_ctx(ctx, pk.seed.data(), N);
         ctx = sha256_add_to_ctx(ctx, pk.root.data(), N);
-        ctx = sha256_add_to_ctx(ctx, message, 32);
+        ctx = sha256_add_to_ctx(ctx, message.data(), message.size());
 
         unsigned char* digest = new unsigned char[32];
         sha256_finalize_32(ctx, digest);
@@ -390,7 +390,7 @@ namespace SHRINCS {
         return is_valid;
     }
 
-    bool shrincs_verify(const unsigned char* message, const unsigned char* sig, uint32_t sig_len, PublicKey& pk)
+    bool shrincs_verify(const std::vector<unsigned char> message, const unsigned char* sig, uint32_t sig_len, PublicKey& pk)
     {
         if (sig_len <= MAX_SF_SIZE)
         {
