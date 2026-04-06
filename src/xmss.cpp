@@ -49,9 +49,9 @@ namespace XMSS
         return auth;
     }
 
-    unsigned char* xmss_pk_from_sig(const unsigned char* wots_sig, const unsigned char* auth, const unsigned char* message, const unsigned char* pk_seed, const unsigned char* pk_root, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t h_prime, uint32_t idx)
+    unsigned char* xmss_pk_from_sig(const unsigned char* wots_sig, const unsigned char* auth, const unsigned char* message, const unsigned char* pk_root, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t h_prime, uint32_t idx)
     {
-        auto node = wots_pk_from_sig(wots_sig, message, N, pk_seed, pk_root, hash_ctx, adrs, idx, false, true);
+        auto node = wots_pk_from_sig(wots_sig, message, N, pk_root, hash_ctx, adrs, idx, false, true);
 
         for (uint32_t i = 0; i < h_prime; i++)
         {

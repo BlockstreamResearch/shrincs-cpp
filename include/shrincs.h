@@ -5,7 +5,7 @@
 #include <vector>
 #include "uxmss.h"
 #include "xmss.h"
-#include "fors_c.h"
+#include "pors_fp.h"
 
 namespace SHRINCS {
     class PublicKey
@@ -39,7 +39,7 @@ namespace SHRINCS {
     };
 
     void generate_random_bytes(unsigned char* buffer, size_t length);
-    void parse_idx(const unsigned char* digest, uint32_t* idx_tree, uint32_t* idx_leaf);
+    void parse_idx(const unsigned char* xof, uint32_t* idx_tree, uint32_t* idx_leaf);
 
     void shrincs_key_gen(PublicKey& out_pk, SecretKey& out_sk, State& out_state);
     void shrincs_restore(const unsigned char* seed, PublicKey& out_pk, SecretKey& out_sk, State& out_state);

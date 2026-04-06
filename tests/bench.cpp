@@ -51,26 +51,26 @@ int main()
     SecretKey sk = SecretKey();
     State state = State();
 
-    shrincs_key_gen(pk, sk, state);
-    // pk.seed = hex_to_bytes("b635ef10af1b120cec1095d7745fec06");
-    // pk.root = hex_to_bytes("0f8fbe02641f3479bd3131c0d5253926");
+    // shrincs_key_gen(pk, sk, state);
+    pk.seed = hex_to_bytes("b0897491782dd43512cf6a7baea72970");
+    pk.root = hex_to_bytes("be830b3eb9db33af19ab1e3ff915bde2");
 
-    // memcpy(sk.pk.seed.data(), pk.seed.data(), N);
-    // memcpy(sk.pk.root.data(), pk.root.data(), N);
-    // sk.sf = hex_to_bytes("e24e6a43f74040ce1cbc1bcde351374b");
-    // sk.sl = hex_to_bytes("9cf1c451ce3c9345581de66456b2b5f0");
-    // sk.prf = hex_to_bytes("e6efd5f7e551153b470c2fd76129e895");
-    // sk.seed = hex_to_bytes("c9fbfa59c5b83297f517a346b0f2c655");
+    memcpy(sk.pk.seed.data(), pk.seed.data(), N);
+    memcpy(sk.pk.root.data(), pk.root.data(), N);
+    sk.sf = hex_to_bytes("7f0a747b9a6b67c760c1281d7dc5ea47");
+    sk.sl = hex_to_bytes("ac5420e5f2058068c94e6f3952ce7ad0");
+    sk.prf = hex_to_bytes("0739e889cdbb26013a44336b6dd69b5e");
+    sk.seed = hex_to_bytes("91f750ce67b3d96b3f69fe780db7b4ae");
 
-    // state.q = 0;
-    // state.valid = true;
+    state.q = 0;
+    state.valid = true;
 
-    // print_hex(pk.seed.data(), N);
-    // print_hex(pk.root.data(), N);
-    // print_hex(sk.sf.data(), N);
-    // print_hex(sk.sl.data(), N);
-    // print_hex(sk.prf.data(), N);
-    // print_hex(sk.seed.data(), N);
+    print_hex(pk.seed.data(), N);
+    print_hex(pk.root.data(), N);
+    print_hex(sk.sf.data(), N);
+    print_hex(sk.sl.data(), N);
+    print_hex(sk.prf.data(), N);
+    print_hex(sk.seed.data(), N);
 
     std::vector<unsigned char> message = std::vector<unsigned char>(32, 0);
 

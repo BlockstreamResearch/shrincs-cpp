@@ -13,10 +13,10 @@ namespace SHRINCS {
         }
     }
 
-    void parse_idx(const unsigned char* digest, uint32_t* idx_tree, uint32_t* idx_leaf)
+    void parse_idx(const unsigned char* xof, uint32_t* idx_tree, uint32_t* idx_leaf)
     {
-        uint32_t ht_offset = K * A;
-        uint32_t idx = FORS_C::extract_bits(digest, ht_offset, HSL);
+        uint32_t ht_offset = ((((1 << B) * K + T - 1) / T + 7) * B + 16) & 0xff;
+        uint32_t idx = PORS_FP::extract_bits(xof, ht_offset, HSL);
 
         for (uint32_t layer = 0; layer < D; layer++)
         {
@@ -149,27 +149,34 @@ namespace SHRINCS {
 
         unsigned char* digest = new unsigned char[32];
 
-        auto fors_sig = FORS_C::fors_sign(message.data(), message.size(), sk.seed.data(), sk.prf.data(), sk.pk.seed.data(), sk.pk.root.data(), hash_ctx, adrs, digest);
-
-        uint32_t indices[K];
-        FORS_C::fors_msg_to_indices(digest, indices);
-        if (indices[K - 1] != 0)
+        unsigned char* pors_sig;
+        
+        try 
+        {
+            pors_sig = PORS_FP::pors_sign(message.data(), message.size(), sk.seed.data(), sk.prf.data(), sk.pk.seed.data(), sk.pk.root.data(), hash_ctx, adrs, digest);
+        }
+        catch (...)
         {
             delete[] adrs;
             delete[] digest;
-            throw std::runtime_error("Fors message digest is not valid");
+            return NULL;
         }
+
+        uint32_t indices[K];
+        auto xof_out = new unsigned char[32];
+
+        PORS_FP::pors_msg_to_indices(digest, indices, xof_out);
 
         uint32_t* tree_idx = new uint32_t[D];
         uint32_t* leaf_idx = new uint32_t[D];
-        parse_idx(digest, tree_idx, leaf_idx);
+        parse_idx(xof_out, tree_idx, leaf_idx);
 
         setLayerAddress(adrs, 0);
-        setTreeAddress(adrs, 0, tree_idx[0] * pow(2, H_PRIME) + leaf_idx[0]);
-        auto fors_pk = FORS_C::fors_pk_from_sig(fors_sig, indices, hash_ctx, adrs);
+        setTreeAddress(adrs, 0, tree_idx[0] * (1 << H_PRIME) + leaf_idx[0]);
+        auto pors_pk = PORS_FP::pors_pk_from_sig(pors_sig, indices, hash_ctx, adrs);
 
         unsigned char* ht_sig = new unsigned char[XMSS_SIGN_LEN * D];
-        auto msg = fors_pk;
+        auto msg = pors_pk;
 
         for (uint32_t layer = 0; layer < D; layer++)
         {
@@ -189,15 +196,16 @@ namespace SHRINCS {
         
         unsigned char* sig = new unsigned char[SL_SIZE];
         memcpy(sig, sk.sf.data(), N);
-        memcpy(sig + N, fors_sig, FORS_SIGN_LEN);
-        memcpy(sig + N + FORS_SIGN_LEN, ht_sig, XMSS_SIGN_LEN * D);
+        memcpy(sig + N, pors_sig, PORS_SIGN_LEN);
+        memcpy(sig + N + PORS_SIGN_LEN, ht_sig, XMSS_SIGN_LEN * D);
 
         delete[] digest;
         delete[] tree_idx;
         delete[] leaf_idx;
-        delete[] fors_sig;
+        delete[] pors_sig;
         delete[] ht_sig;
         delete[] adrs;
+        delete[] xof_out;
 
         return sig;
     }
@@ -237,7 +245,7 @@ namespace SHRINCS {
         {
             try
             {
-                auto sf = UXMSS::uxmss_pk_from_sig(uxmss_sig, uxmss_sig + WOTS_SIGN_LEN, message.data(), message.size(), pk.seed.data(), pk.root.data(), hash_ctx, adrs, last_sf_level ? HSF + j : q_raw);
+                auto sf = UXMSS::uxmss_pk_from_sig(uxmss_sig, uxmss_sig + WOTS_SIGN_LEN, message.data(), message.size(), pk.root.data(), hash_ctx, adrs, last_sf_level ? HSF + j : q_raw);
 
                 unsigned char* root = new unsigned char[N];
                 setTypeAndClear(adrs, ROOT);
@@ -277,14 +285,10 @@ namespace SHRINCS {
         memcpy(sf, sig, N);
         uint32_t offset = N;
 
-        const unsigned char* fors_sig = sig + offset;
-        offset += FORS_SIGN_LEN;
+        const unsigned char* pors_sig = sig + offset;
+        offset += PORS_SIGN_LEN;
 
-        const unsigned char* r = fors_sig;
-
-        // uint32_t ctr;
-        // memcpy(&ctr, fors_sig + R_LEN, 4);
-        // ctr = ntohl(ctr);
+        const unsigned char* r = pors_sig;
 
         SHA256_CTX hash_ctx;
         SHA256_Init(&hash_ctx);
@@ -298,9 +302,8 @@ namespace SHRINCS {
         SHA256_Init(&ctx);
 
         setTypeAndClear(adrs, SL_H_MSG);
-        ctx = sha256_add_to_ctx(ctx, adrs, 32);
+        ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
         ctx = sha256_add_to_ctx(ctx, r, R_LEN);
-        ctx = sha256_add_to_ctx(ctx, pk.seed.data(), N);
         ctx = sha256_add_to_ctx(ctx, pk.root.data(), N);
         ctx = sha256_add_to_ctx(ctx, message.data(), message.size());
 
@@ -308,26 +311,29 @@ namespace SHRINCS {
         sha256_finalize_32(ctx, digest);
 
         uint32_t indices[K];
-        FORS_C::fors_msg_to_indices(digest, indices);
-        if (indices[K - 1] != 0)
+        auto xof_out = new unsigned char[32];
+
+        PORS_FP::pors_msg_to_indices(digest, indices, xof_out);
+
+        auto A = new std::tuple<uint32_t, uint32_t>[M_MAX];
+        uint32_t A_len;
+        if (!PORS_FP::pors_octopus(indices, A, A_len))
         {
-            delete[] adrs;
-            delete[] sf;
-            delete[] digest;
-            throw std::runtime_error("Fors message digest is not valid");
+            delete[] A;
+            return false;
         }
 
         uint32_t* tree_idx = new uint32_t[D];
         uint32_t* leaf_idx = new uint32_t[D];
-        parse_idx(digest, tree_idx, leaf_idx);
+        parse_idx(xof_out, tree_idx, leaf_idx);
 
         setLayerAddress(adrs, 0);
-        setTreeAddress(adrs, 0, tree_idx[0] * pow(2, H_PRIME) + leaf_idx[0]);
+        setTreeAddress(adrs, 0, tree_idx[0] * (1 << H_PRIME) + leaf_idx[0]);
 
-        unsigned char* fors_pk;
+        unsigned char* pors_pk;
         try
         {
-            fors_pk = FORS_C::fors_pk_from_sig(fors_sig, indices, hash_ctx, adrs);
+            pors_pk = PORS_FP::pors_pk_from_sig(pors_sig, indices, hash_ctx, adrs);
         }
         catch(const std::exception& e)
         {
@@ -336,10 +342,12 @@ namespace SHRINCS {
             delete[] digest;
             delete[] tree_idx;
             delete[] leaf_idx;
+            delete[] A;
+            delete[] xof_out;
             return false;
         }
 
-        auto msg = fors_pk;
+        auto msg = pors_pk;
 
         for (uint32_t layer = 0; layer < D; layer++)
         {
@@ -351,7 +359,7 @@ namespace SHRINCS {
             setTreeAddress(adrs, 0, tree_idx[layer]);
             try 
             {
-                unsigned char* new_msg = XMSS::xmss_pk_from_sig(wots_sig, auth, msg, pk.seed.data(), pk.root.data(), hash_ctx, adrs, H_PRIME, leaf_idx[layer]);
+                unsigned char* new_msg = XMSS::xmss_pk_from_sig(wots_sig, auth, msg, pk.root.data(), hash_ctx, adrs, H_PRIME, leaf_idx[layer]);
                 delete[] msg;
                 msg = new_msg;
             }
@@ -362,6 +370,9 @@ namespace SHRINCS {
                 delete[] digest;
                 delete[] tree_idx;
                 delete[] leaf_idx;
+                delete[] A;
+                delete[] xof_out;
+
                 return false;
             }
         }
@@ -386,6 +397,8 @@ namespace SHRINCS {
         delete[] tree_idx;
         delete[] leaf_idx;
         delete[] root;
+        delete[] A;
+        delete[] xof_out;
 
         return is_valid;
     }
