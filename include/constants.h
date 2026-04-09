@@ -51,13 +51,14 @@ namespace AddressTypes
     inline constexpr uint32_t PORS_TREE     = 0x07;
     inline constexpr uint32_t PORS_PK       = 0x08;
     inline constexpr uint32_t PORS_PRF      = 0x09;
-    inline constexpr uint32_t SL_WOTS_HASH  = 0x0A;
-    inline constexpr uint32_t SL_WOTS_PK    = 0x0B;
-    inline constexpr uint32_t SL_TREE       = 0x0C;
-    inline constexpr uint32_t SL_WOTS_GRIND = 0x0D;
-    inline constexpr uint32_t SL_H_MSG      = 0x0E;
-    inline constexpr uint32_t SL_WOTS_PRF   = 0x0F;
-    inline constexpr uint32_t ROOT          = 0x10;
+    inline constexpr uint32_t PORS_XOF      = 0x0A;
+    inline constexpr uint32_t SL_WOTS_HASH  = 0x0B;
+    inline constexpr uint32_t SL_WOTS_PK    = 0x0C;
+    inline constexpr uint32_t SL_TREE       = 0x0D;
+    inline constexpr uint32_t SL_WOTS_GRIND = 0x0E;
+    inline constexpr uint32_t SL_H_MSG      = 0x0F;
+    inline constexpr uint32_t SL_WOTS_PRF   = 0x10;
+    inline constexpr uint32_t ROOT          = 0x11;
 }
 
 #endif // CONSTANTS_H

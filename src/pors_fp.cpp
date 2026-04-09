@@ -29,30 +29,34 @@ namespace PORS_FP {
         return false;
     }
 
-    void pors_msg_to_indices(const unsigned char* message, uint32_t* indices_out, unsigned char* xof_out)
+    unsigned char* pors_msg_to_indices(const unsigned char* message, const unsigned char* pk_root, unsigned char* adrs, SHA256_CTX hash_ctx, uint32_t* indices_out)
     {
         uint32_t b = ceil(log2(T));
         uint32_t c = floor(256.0 / b);
 
-        uint32_t xof_block_idx = ((((1 << b) * K + T - 1) / T + 7) * b + 16) / 256;
-
-        SHA256_CTX ctx;
-        SHA256_Init(&ctx);
+        uint32_t xof_block_idx = ((((1 << b) * K + T - 1) / T) + c - 1) / c;
 
         unsigned char block[32];
+        unsigned char* xof_out = new unsigned char[xof_block_idx * 32];
+        uint32_t xof_offset = 0;
 
         uint32_t indices_amount = 0;
 
+        setTypeAndClear(adrs, PORS_XOF);
+        auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
+        ctx = sha256_add_to_ctx(ctx, pk_root, N);
+        ctx = sha256_add_to_ctx(ctx, message, 32);
+
         for (uint32_t blk = 0; blk < UINT32_MAX; blk++)
         {
-            auto ctx_ = sha256_add_to_ctx(ctx, message, 32);
             uint32_t ctr_be = htonl(blk);
-            ctx_ = sha256_add_to_ctx(ctx_, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
-            sha256_finalize_32(ctx_, block);
+            ctx = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
+            sha256_finalize_32(ctx, block);
 
-            if (blk == xof_block_idx)
+            if (blk < xof_block_idx)
             {
-                memcpy(xof_out, block, 32);
+                memcpy(xof_out + xof_offset, block, 32);
+                xof_offset += 32;
             }
 
             for (uint32_t i = 0; i < c; i++)
@@ -69,7 +73,7 @@ namespace PORS_FP {
             if (blk >= xof_block_idx && indices_amount == K)
             {
                 std::sort(indices_out, indices_out + K);
-                return;
+                return xof_out;
             }
         }
 
@@ -130,10 +134,10 @@ namespace PORS_FP {
             I.insert(I.end(), P.begin(), P.end());
             P.clear();
 
-            // if (I.size() == 1 && std::get<1>(I[0]) == 0)
-            // {
-            //     break;
-            // }
+            if (I.size() == 1 && std::get<1>(I[0]) == 0)
+            {
+                break;
+            }
         }
 
         return true;
@@ -148,7 +152,7 @@ namespace PORS_FP {
 
         ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
 
-        auto xof_out = new unsigned char[32];
+        unsigned char* xof_out;
         auto A = new std::tuple<uint32_t, uint32_t>[M_MAX];
         uint32_t a_len = 0;
 
@@ -161,7 +165,7 @@ namespace PORS_FP {
             ctx_ = sha256_add_to_ctx(ctx_, message, message_len);
             sha256_finalize_32(ctx_, digest_out);
 
-            pors_msg_to_indices(digest_out, indices_out, xof_out);
+            xof_out = pors_msg_to_indices(digest_out, pk_root, adrs, hash_ctx, indices_out);
             if (pors_octopus(indices_out, A, a_len))
             {
                 delete[] A;
@@ -318,6 +322,11 @@ namespace PORS_FP {
 
         unsigned char val[N];
 
+        auto A = new std::tuple<uint32_t, uint32_t>[M_MAX];
+        uint32_t A_len = 0;
+        pors_octopus(indices, A, A_len);
+        delete[] A;
+
         for (uint32_t i = 0; i < K; i++)
         {
             memcpy(sk_i, sig + offset, N);
@@ -402,10 +411,21 @@ namespace PORS_FP {
             I.insert(I.end(), P.begin(), P.end());
             P.clear();
 
-            // if (I.size() == 1 && std::get<1>(I[0]) == 0)
-            // {
-            //     break;
-            // }
+            if (I.size() == 1 && std::get<1>(I[0]) == 0)
+            {
+                break;
+            }
+        }
+
+        for (uint32_t i = A_len; i < M_MAX; i++)
+        {
+            bool is_all_zeros = std::all_of(sig + offset, sig + offset + N, [](unsigned char c) { return c == 0; });
+            offset += N;
+
+            if (!is_all_zeros)
+            {
+                throw std::runtime_error("Incorect zero-padding in PORS+FP");
+            }
         }
 
         auto root = std::get<2>(I[0]);
