@@ -1,5 +1,4 @@
 #include "shrincs.h"
-
 namespace SHRINCS {
     PublicKey::PublicKey() : seed(N), root(N) {}
 
@@ -15,7 +14,7 @@ namespace SHRINCS {
 
     void parse_idx(const unsigned char* xof, uint32_t* idx_tree, uint32_t* idx_leaf)
     {
-        uint32_t ht_offset = ((((1 << B) * K + T - 1) / T + 7) * B + 16) & 0xff;
+        uint32_t ht_offset = (((1 << B) * K + T - 1) / T + 7) * B + 16;
         uint32_t idx = PORS_FP::extract_bits(xof, ht_offset, HSL);
 
         for (uint32_t layer = 0; layer < D; layer++)

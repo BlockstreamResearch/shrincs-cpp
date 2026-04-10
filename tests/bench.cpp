@@ -74,7 +74,7 @@ int main()
 
     std::vector<unsigned char> message = std::vector<unsigned char>(32, 0);
 
-    // hexStringToBytes("8a276ceb95d10ed7705c9e25c9987cb4b1eaf73bcae7f922058c4e46e906a778", message);
+    // hexStringToBytes("8a276ceb95d10ed7705c9e25c9987cb4b1eaf73bcae7f922058c4e46e906a778", message.data());
 
     auto start = std::chrono::high_resolution_clock::now();
     auto signature = shrincs_sign_stateful(message, sk, state);
