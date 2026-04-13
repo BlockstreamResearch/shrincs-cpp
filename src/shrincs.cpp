@@ -164,7 +164,7 @@ namespace SHRINCS {
         uint32_t indices[K];
         unsigned char* xof_out;
 
-        xof_out = PORS_FP::pors_msg_to_indices(digest, sk.pk.root.data(), adrs, hash_ctx, indices);
+        xof_out = PORS_FP::pors_msg_to_indices(digest, adrs, hash_ctx, indices);
 
         uint32_t* tree_idx = new uint32_t[D];
         uint32_t* leaf_idx = new uint32_t[D];
@@ -312,7 +312,7 @@ namespace SHRINCS {
         uint32_t indices[K];
         unsigned char* xof_out;
 
-        xof_out = PORS_FP::pors_msg_to_indices(digest, pk.root.data(), adrs, hash_ctx, indices);
+        xof_out = PORS_FP::pors_msg_to_indices(digest, adrs, hash_ctx, indices);
 
         auto A = new std::tuple<uint32_t, uint32_t>[M_MAX];
         uint32_t A_len;

@@ -29,7 +29,7 @@ namespace PORS_FP {
         return false;
     }
 
-    unsigned char* pors_msg_to_indices(const unsigned char* message, const unsigned char* pk_root, unsigned char* adrs, SHA256_CTX hash_ctx, uint32_t* indices_out)
+    unsigned char* pors_msg_to_indices(const unsigned char* message, unsigned char* adrs, SHA256_CTX hash_ctx, uint32_t* indices_out)
     {
         uint32_t b = ceil(log2(T));
         uint32_t c = floor(256.0 / b);
@@ -44,7 +44,6 @@ namespace PORS_FP {
 
         setTypeAndClear(adrs, PORS_XOF);
         auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        ctx = sha256_add_to_ctx(ctx, pk_root, N);
         ctx = sha256_add_to_ctx(ctx, message, 32);
 
         for (uint32_t blk = 0; blk < UINT32_MAX; blk++)
@@ -165,7 +164,7 @@ namespace PORS_FP {
             ctx_ = sha256_add_to_ctx(ctx_, message, message_len);
             sha256_finalize_32(ctx_, digest_out);
 
-            xof_out = pors_msg_to_indices(digest_out, pk_root, adrs, hash_ctx, indices_out);
+            xof_out = pors_msg_to_indices(digest_out, adrs, hash_ctx, indices_out);
             if (pors_octopus(indices_out, A, a_len))
             {
                 delete[] A;
