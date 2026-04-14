@@ -1,5 +1,4 @@
 #include "pors_fp.h"
-#include <iostream>
 
 namespace PORS_FP {
     uint32_t extract_bits(const unsigned char* message, uint32_t start_bit_idx, uint32_t bits_amount)
