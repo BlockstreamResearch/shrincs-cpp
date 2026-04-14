@@ -118,6 +118,9 @@ namespace WOTS_C
         if (num_threads == 0) num_threads = 4;
 
         auto worker = [&]() {
+            unsigned char res[N];
+            unsigned char tmp_msg[L];
+
             while (!found.load(std::memory_order_relaxed)) {
                 uint64_t ctr = current_ctr.fetch_add(1, std::memory_order_relaxed);
                 
@@ -128,10 +131,8 @@ namespace WOTS_C
                 uint32_t ctr_be = htonl(ctr);
                 auto ctx_ = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
 
-                unsigned char res[N];
                 sha256_finalize(ctx_, res);
 
-                unsigned char tmp_msg[L];
                 base_w(res, tmp_msg);
 
                 uint32_t sum = 0;
