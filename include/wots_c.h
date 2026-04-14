@@ -6,6 +6,8 @@
 #include <cmath>
 #include <openssl/sha.h>
 #include <stdexcept>
+#include <atomic>
+#include <thread>
 #include "address.h"
 #include "constants.h"
 #include "hash.h"

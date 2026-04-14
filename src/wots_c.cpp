@@ -110,26 +110,57 @@ namespace WOTS_C
         ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
         ctx = sha256_add_to_ctx(ctx, message, message_len);
 
-        unsigned char res[N];
-        unsigned char tmp_msg[L];
+        std::atomic<uint64_t> current_ctr{0};
+        std::atomic<bool> found{false};
+        std::atomic<uint32_t> result_ctr{0};
 
-        for (uint32_t ctr = 0; ctr < UINT32_MAX; ctr++)
-        {
-            uint32_t ctr_be = htonl(ctr);
-            auto ctx_ = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
+        unsigned int num_threads = std::thread::hardware_concurrency();
+        if (num_threads == 0) num_threads = 4;
 
-            sha256_finalize(ctx_, res);
+        auto worker = [&]() {
+            while (!found.load(std::memory_order_relaxed)) {
+                uint64_t ctr = current_ctr.fetch_add(1, std::memory_order_relaxed);
+                
+                if (ctr > UINT32_MAX) {
+                    break;
+                }
 
-            base_w(res, tmp_msg);
+                uint32_t ctr_be = htonl(ctr);
+                auto ctx_ = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
 
-            uint32_t sum = 0;
-            for (uint32_t i = 0; i < L; i++) sum += tmp_msg[i];
-            
-            if (sum == SWN) 
-            {
-                memcpy(msg_out, tmp_msg, L);
-                return ctr;
+                unsigned char res[N];
+                sha256_finalize(ctx_, res);
+
+                unsigned char tmp_msg[L];
+                base_w(res, tmp_msg);
+
+                uint32_t sum = 0;
+                for (uint32_t i = 0; i < L; i++) sum += tmp_msg[i];
+
+                if (sum == SWN) {
+                    bool expected = false;
+                    if (found.compare_exchange_strong(expected, true)) {
+                        result_ctr.store(static_cast<uint32_t>(ctr));
+                        memcpy(msg_out, tmp_msg, L);
+                    }
+                    break;
+                }
             }
+        };
+
+        std::vector<std::thread> threads;
+        for (unsigned int i = 0; i < num_threads; ++i) {
+            threads.emplace_back(worker);
+        }
+
+        for (auto& t : threads) {
+            if (t.joinable()) {
+                t.join();
+            }
+        }
+
+        if (found.load()) {
+            return result_ctr.load();
         }
         
         throw std::runtime_error("Unnable to find valid wots message digest");

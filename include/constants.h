@@ -37,6 +37,10 @@ namespace Parameters
     inline constexpr uint32_t PORS_SIGN_LEN = R_LEN + (K + M_MAX) * N;
     inline constexpr uint32_t MAX_SF_SIZE   = N + WOTS_SIGN_LEN + HSF * N;
     inline constexpr uint32_t SL_SIZE       = N + PORS_SIGN_LEN + XMSS_SIGN_LEN * D;
+
+    // PORS additional constants
+    inline constexpr uint32_t c = 256 / B;
+    inline constexpr uint32_t xof_block_idx = ((((1 << B) * K + T - 1) / T) + c - 1) / c;
 }
 
 namespace AddressTypes

@@ -1,4 +1,5 @@
 #include "pors_fp.h"
+#include <iostream>
 
 namespace PORS_FP {
     uint32_t extract_bits(const unsigned char* message, uint32_t start_bit_idx, uint32_t bits_amount)
@@ -29,15 +30,9 @@ namespace PORS_FP {
         return false;
     }
 
-    unsigned char* pors_msg_to_indices(const unsigned char* message, unsigned char* adrs, SHA256_CTX hash_ctx, uint32_t* indices_out)
+    unsigned char* pors_msg_to_indices(const unsigned char* message, unsigned char* adrs, SHA256_CTX hash_ctx, uint32_t* indices_out, unsigned char* xof_out)
     {
-        uint32_t b = ceil(log2(T));
-        uint32_t c = floor(256.0 / b);
-
-        uint32_t xof_block_idx = ((((1 << b) * K + T - 1) / T) + c - 1) / c;
-
         unsigned char block[32];
-        unsigned char* xof_out = new unsigned char[xof_block_idx * 32];
         uint32_t xof_offset = 0;
 
         uint32_t indices_amount = 0;
@@ -61,7 +56,7 @@ namespace PORS_FP {
             for (uint32_t i = 0; i < c; i++)
             {
                 if (indices_amount == K) break;
-                uint32_t candidate = extract_bits(block, i * b, b);
+                uint32_t candidate = extract_bits(block, i * B, B);
                 if (candidate < T && !uint32_arr_have(indices_out, indices_amount, candidate))
                 {
                     indices_out[indices_amount] = candidate;
@@ -81,8 +76,7 @@ namespace PORS_FP {
 
     bool pors_octopus(uint32_t* indices, std::tuple<uint32_t, uint32_t>* A_out, uint32_t& A_len_out)
     {
-        uint32_t h = ceil(log2(T));
-        uint32_t s = T - (1 << (h - 1));
+        uint32_t s = T - (1 << (B - 1));
 
         std::vector<std::tuple<uint32_t, uint32_t>> I;
         std::vector<std::tuple<uint32_t, uint32_t>> P;
@@ -103,7 +97,7 @@ namespace PORS_FP {
             }
         }
 
-        for (uint32_t current_lvl = 0; current_lvl < h; current_lvl++)
+        for (uint32_t current_lvl = 0; current_lvl < B; current_lvl++)
         {
             std::vector<std::tuple<uint32_t, uint32_t>> P_next;
 
@@ -151,31 +145,66 @@ namespace PORS_FP {
 
         ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
 
-        unsigned char* xof_out;
-        auto A = new std::tuple<uint32_t, uint32_t>[M_MAX];
-        uint32_t a_len = 0;
+        std::atomic<uint64_t> current_ctr{0};
+        std::atomic<bool> found{false};
 
-        for (uint32_t ctr = 0; ctr < UINT32_MAX; ctr++)
-        {
-            prf_msg(sk_prf, pk_seed, opt_rand, message, message_len, true, ctr, R_LEN, r_out);
+        unsigned int num_threads = std::thread::hardware_concurrency();
+        if (num_threads == 0) num_threads = 4;
 
-            auto ctx_ = sha256_add_to_ctx(ctx, r_out, R_LEN);
-            ctx_ = sha256_add_to_ctx(ctx_, pk_root, N);
-            ctx_ = sha256_add_to_ctx(ctx_, message, message_len);
-            sha256_finalize_32(ctx_, digest_out);
+        auto worker = [&]() {
+            auto local_A = new std::tuple<uint32_t, uint32_t>[M_MAX];
+            unsigned char local_xof_out[xof_block_idx * 32];
+            unsigned char local_r_out[R_LEN];
+            unsigned char local_digest_out[32];
+            uint32_t local_indices_out[K];
 
-            xof_out = pors_msg_to_indices(digest_out, adrs, hash_ctx, indices_out);
-            if (pors_octopus(indices_out, A, a_len))
-            {
-                delete[] A;
-                delete[] xof_out;
+            while (!found.load(std::memory_order_relaxed)) {
+                uint64_t ctr = current_ctr.fetch_add(1, std::memory_order_relaxed);
+                uint32_t a_len = 0;
 
-                return;
+                if (ctr > UINT32_MAX) {
+                    break;
+                }
+
+                prf_msg(sk_prf, pk_seed, opt_rand, message, message_len, true, ctr, R_LEN, local_r_out);
+
+                auto ctx_ = sha256_add_to_ctx(ctx, local_r_out, R_LEN);
+                ctx_ = sha256_add_to_ctx(ctx_, pk_root, N);
+                ctx_ = sha256_add_to_ctx(ctx_, message, message_len);
+                sha256_finalize_32(ctx_, local_digest_out);
+
+                pors_msg_to_indices(local_digest_out, adrs, hash_ctx, local_indices_out, local_xof_out);
+                if (pors_octopus(local_indices_out, local_A, a_len))
+                {
+                    bool expected = false;
+                    if (found.compare_exchange_strong(expected, true)) {
+                        std::memcpy(r_out, local_r_out, R_LEN);
+                        std::memcpy(digest_out, local_digest_out, 32); 
+                        std::memcpy(indices_out, local_indices_out, K * sizeof(uint32_t));
+                    }
+                    
+                    break;
+                }
+            }
+
+            delete[] local_A;
+        };
+
+        std::vector<std::thread> threads;
+        for (unsigned int i = 0; i < num_threads; ++i) {
+            threads.emplace_back(worker);
+        }
+
+        for (auto& t : threads) {
+            if (t.joinable()) {
+                t.join();
             }
         }
 
-        delete[] A;
-        delete[] xof_out;
+        if (found.load()) {
+            return; 
+        }
+
         throw std::runtime_error("Unnable to find valid pors message digest");
     }
 
