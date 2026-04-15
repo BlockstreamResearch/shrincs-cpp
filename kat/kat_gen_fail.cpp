@@ -1,17 +1,17 @@
 // SHRINCS Known-Answer Tests: corrupted data (FAIL cases)
 //
 // Select the parameter set at compile time:
-//   -DSHRINCS_B   →  SHRINCS-B  (HSF=158, L=16, W=256, SWN=2040)    [default]
-//   -DSHRINCS_L   →  SHRINCS-L  (HSF=206, L=64, W=4,   SWN=140)
+//   -DSHRINCS_B   →  SHRINCS-B  (HSF=141, L=16, W=256, SWN=2040)    [default]
+//   -DSHRINCS_L   →  SHRINCS-L  (HSF=189, L=64, W=4,   SWN=140)
 //
 // Build examples:
 //   g++ -std=c++17 -O2 -DSHRINCS_L kat/kat_gen_fail.cpp kat/rng.c \
-//       src/shrincs.cpp src/uxmss.cpp src/xmss.cpp src/fors_c.cpp  \
+//       src/shrincs.cpp src/uxmss.cpp src/xmss.cpp src/pors_fp.cpp  \
 //       src/wots_c.cpp src/hash.cpp src/address.cpp                 \
 //       -I./include -I./kat -lssl -lcrypto -o kat_fail_L
 //
 //   g++ -std=c++17 -O2 -DSHRINCS_B kat/kat_gen_fail.cpp kat/rng.c \
-//       src/shrincs.cpp src/uxmss.cpp src/xmss.cpp src/fors_c.cpp  \
+//       src/shrincs.cpp src/uxmss.cpp src/xmss.cpp src/pors_fp.cpp  \
 //       src/wots_c.cpp src/hash.cpp src/address.cpp                 \
 //       -I./include -I./kat -lssl -lcrypto -o kat_fail_B
 //

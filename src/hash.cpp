@@ -43,11 +43,11 @@ namespace HASH
         }
         ctx = sha256_add_to_ctx(ctx, message, message_len);
 
+        unsigned char hash[32];
         for (uint32_t i = 0; i < ceil((mask_len + 31) / 32); i++)
         {
             uint32_t ctr_be = htonl(i);
             auto ctx_ = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
-            unsigned char hash[32];
             sha256_finalize_32(ctx_, hash);
 
             memcpy(out + i * 32, hash, std::min(mask_len - i * 32, 32u));

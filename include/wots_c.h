@@ -6,6 +6,8 @@
 #include <cmath>
 #include <openssl/sha.h>
 #include <stdexcept>
+#include <atomic>
+#include <thread>
 #include "address.h"
 #include "constants.h"
 #include "hash.h"
@@ -20,10 +22,10 @@ namespace WOTS_C
     void base_w(const unsigned char* message, unsigned char* out_buffer);
     void chain(const unsigned char* m, uint32_t start, uint32_t steps, SHA256_CTX hash_ctx, unsigned char* adrs, unsigned char* out);
     unsigned char* wots_pk_gen(const unsigned char* sk_seed, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t keypair, bool sf);
-    uint32_t wots_grind(const unsigned char* message, uint32_t message_len, const unsigned char* pk_seed, unsigned char* adrs, uint32_t keypair, unsigned char* msg_out, bool sf);
-    bool wots_digest(const unsigned char* message, uint32_t message_len, const unsigned char* pk_seed, uint32_t ctr, unsigned char* adrs, uint32_t keypair, unsigned char* msg_out, bool sf);
+    uint32_t wots_grind(const unsigned char* message, uint32_t message_len, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t keypair, unsigned char* msg_out, bool sf);
+    bool wots_digest(const unsigned char* message, uint32_t message_len, SHA256_CTX hash_ctx, uint32_t ctr, unsigned char* adrs, uint32_t keypair, unsigned char* msg_out, bool sf);
     unsigned char* wots_sign(const unsigned char* message, uint32_t message_len, const unsigned char* sk_seed, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t keypair, bool sf, bool is_internal);
-    unsigned char* wots_pk_from_sig(const unsigned char* sig, const unsigned char* message, uint32_t message_len, const unsigned char* pk_seed, const unsigned char* pk_root, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t keypair, bool sf, bool is_internal);
+    unsigned char* wots_pk_from_sig(const unsigned char* sig, const unsigned char* message, uint32_t message_len, const unsigned char* pk_root, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t keypair, bool sf, bool is_internal);
 }
 
 #endif

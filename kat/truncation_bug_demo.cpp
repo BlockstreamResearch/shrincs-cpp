@@ -5,7 +5,7 @@
 //
 //  g++ -std=c++17 -O2 -DSHRINCS_B \
 //    kat/truncation_bug_demo.cpp rng.o \
-//    src/shrincs.cpp src/uxmss.cpp src/xmss.cpp src/fors_c.cpp \
+//    src/shrincs.cpp src/uxmss.cpp src/xmss.cpp src/pors_fp.cpp \
 //    src/wots_c.cpp src/hash.cpp src/address.cpp \
 //    -I./include -I./kat -lssl -lcrypto -o truncation_bug_demo
 //   ./truncation_bug_demo

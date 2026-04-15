@@ -52,15 +52,15 @@ int main()
     State state = State();
 
     shrincs_key_gen(pk, sk, state);
-    // pk.seed = hex_to_bytes("b635ef10af1b120cec1095d7745fec06");
-    // pk.root = hex_to_bytes("0f8fbe02641f3479bd3131c0d5253926");
+    // pk.seed = hex_to_bytes("918fd17d889f34eb76a99a0c93a2015e");
+    // pk.root = hex_to_bytes("da5a08dc47d1e05d0d4d816f72e78e27");
 
     // memcpy(sk.pk.seed.data(), pk.seed.data(), N);
     // memcpy(sk.pk.root.data(), pk.root.data(), N);
-    // sk.sf = hex_to_bytes("e24e6a43f74040ce1cbc1bcde351374b");
-    // sk.sl = hex_to_bytes("9cf1c451ce3c9345581de66456b2b5f0");
-    // sk.prf = hex_to_bytes("e6efd5f7e551153b470c2fd76129e895");
-    // sk.seed = hex_to_bytes("c9fbfa59c5b83297f517a346b0f2c655");
+    // sk.sf = hex_to_bytes("00ae2c282f33b319d83b705b4b5487c6");
+    // sk.sl = hex_to_bytes("18311f77a5283cf39aabaf35dc3dfd79");
+    // sk.prf = hex_to_bytes("1a79e406404e29a7feed94aa546330ac");
+    // sk.seed = hex_to_bytes("0517400a7d4f5a532d4f34b077182caf");
 
     // state.q = 0;
     // state.valid = true;
@@ -74,7 +74,7 @@ int main()
 
     std::vector<unsigned char> message = std::vector<unsigned char>(32, 0);
 
-    // hexStringToBytes("8a276ceb95d10ed7705c9e25c9987cb4b1eaf73bcae7f922058c4e46e906a778", message);
+    // hexStringToBytes("8a276ceb95d10ed7705c9e25c9987cb4b1eaf73bcae7f922058c4e46e906a778", message.data());
 
     auto start = std::chrono::high_resolution_clock::now();
     auto signature = shrincs_sign_stateful(message, sk, state);
