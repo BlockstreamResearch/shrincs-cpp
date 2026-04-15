@@ -12,7 +12,7 @@
 //   SHRINCS-B:
 //     g++ -std=c++17 -O2 -DSHRINCS_B \
 //         kat/kat_gen_pass.cpp rng.o \
-//         src/shrincs.cpp src/uxmss.cpp src/xmss.cpp src/fors_c.cpp \
+//         src/shrincs.cpp src/uxmss.cpp src/xmss.cpp src/pors_fp.cpp \
 //         src/wots_c.cpp src/hash.cpp src/address.cpp \
 //         -I./include -I./kat -lssl -lcrypto -o kat_pass_B
 //     ./kat_pass_B
@@ -20,7 +20,7 @@
 //   SHRINCS-L:
 //     g++ -std=c++17 -O2 -DSHRINCS_L \
 //         kat/kat_gen_pass.cpp rng.o \
-//         src/shrincs.cpp src/uxmss.cpp src/xmss.cpp src/fors_c.cpp \
+//         src/shrincs.cpp src/uxmss.cpp src/xmss.cpp src/pors_fp.cpp \
 //         src/wots_c.cpp src/hash.cpp src/address.cpp \
 //         -I./include -I./kat -lssl -lcrypto -o kat_pass_L
 //     ./kat_pass_L
