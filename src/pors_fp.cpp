@@ -349,11 +349,6 @@ namespace PORS_FP {
 
         unsigned char val[N];
 
-        auto A = new std::tuple<uint32_t, uint32_t>[M_MAX];
-        uint32_t A_len = 0;
-        pors_octopus(indices, A, A_len);
-        delete[] A;
-
         for (uint32_t i = 0; i < K; i++)
         {
             memcpy(sk_i, sig + offset, N);
@@ -441,17 +436,6 @@ namespace PORS_FP {
             if (I.size() == 1 && std::get<1>(I[0]) == 0)
             {
                 break;
-            }
-        }
-
-        for (uint32_t i = A_len; i < M_MAX; i++)
-        {
-            bool is_all_zeros = std::all_of(sig + offset, sig + offset + N, [](unsigned char c) { return c == 0; });
-            offset += N;
-
-            if (!is_all_zeros)
-            {
-                throw std::runtime_error("Incorect zero-padding in PORS+FP");
             }
         }
 

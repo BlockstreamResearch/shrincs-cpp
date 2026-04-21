@@ -4,31 +4,51 @@
 #include <cstdint>
 
 
-#if !defined(SHRINCS_B) && !defined(SHRINCS_L)
-    #define SHRINCS_B
+#if !defined(SHRINCS_B) && !defined(SHRINCS_L) && !defined(SHRINCS_B32)
+    #define SHRINCS_B32
 #endif
 
 namespace Parameters
 {
     inline constexpr uint32_t N     = 16;         // Security parameter (bytes)
-    inline constexpr uint32_t HSL   = 24;         // Max stateless hypertree height
-    inline constexpr uint32_t D     = 2;          // Stateless hypertree layers
-    inline constexpr uint32_t T     = 9245141;    // The number of secret values in PORS+FP tree
-    inline constexpr uint32_t B     = 24;         // PORS+FP tree height
-    inline constexpr uint32_t K     = 6;          // Number of PORS+FP revealed tree leafs
-    inline constexpr uint32_t M_MAX = 91;         // Maximum size of the Octopus authentication path
     inline constexpr uint32_t R_LEN = 32;         // Randomness length (bytes)
 
 #if defined(SHRINCS_B)
-    inline constexpr uint32_t W   = 256;          // Winternitz parameter
-    inline constexpr uint32_t L   = 16;           // WOTS+C chain count
-    inline constexpr uint32_t SWN = 2040;         // Target sum for WOTS+C
-    inline constexpr uint32_t HSF = 141;          // Max stateful tree height
+    inline constexpr uint32_t W      = 256;          // Winternitz parameter
+    inline constexpr uint32_t L      = 16;           // WOTS+C chain count
+    inline constexpr uint32_t SWN    = 2040;         // Target sum for WOTS+C
+    inline constexpr uint32_t HSF    = 141;          // Max stateful tree height
+    inline constexpr uint32_t HSL    = 24;           // Max stateless hypertree height
+    inline constexpr uint32_t D      = 2;            // Stateless hypertree layers
+    inline constexpr uint32_t T      = 9245141;      // The number of secret values in PORS+FP tree
+    inline constexpr uint32_t B      = 24;           // PORS+FP tree height
+    inline constexpr uint32_t K      = 6;            // Number of PORS+FP revealed tree leafs
+    inline constexpr uint32_t M_MAX  = 91;           // Maximum size of the Octopus authentication path
+    inline constexpr uint32_t margin = 7;
+#elif defined(SHRINCS_B32)
+    inline constexpr uint32_t W      = 256;
+    inline constexpr uint32_t L      = 16;
+    inline constexpr uint32_t SWN    = 2040;
+    inline constexpr uint32_t HSF    = 210;
+    inline constexpr uint32_t HSL    = 32;
+    inline constexpr uint32_t D      = 4;
+    inline constexpr uint32_t T      = 109571;
+    inline constexpr uint32_t B      = 17;
+    inline constexpr uint32_t K      = 11;
+    inline constexpr uint32_t M_MAX  = 111;
+    inline constexpr uint32_t margin = 10;
 #else // SHRINCS_L
-    inline constexpr uint32_t W   = 4;      
-    inline constexpr uint32_t L   = 64;     
-    inline constexpr uint32_t SWN = 140;    
-    inline constexpr uint32_t HSF = 189;    
+    inline constexpr uint32_t W      = 4;      
+    inline constexpr uint32_t L      = 64;     
+    inline constexpr uint32_t SWN    = 140;    
+    inline constexpr uint32_t HSF    = 189;   
+    inline constexpr uint32_t HSL    = 24;
+    inline constexpr uint32_t D      = 2;
+    inline constexpr uint32_t T      = 9245141;
+    inline constexpr uint32_t B      = 24;
+    inline constexpr uint32_t K      = 6;
+    inline constexpr uint32_t M_MAX  = 91;
+    inline constexpr uint32_t margin = 7;
 #endif
 
     inline constexpr uint32_t H_PRIME       = HSL / D;
@@ -40,7 +60,8 @@ namespace Parameters
 
     // PORS additional constants
     inline constexpr uint32_t c = 256 / B;
-    inline constexpr uint32_t xof_block_idx = ((((1 << B) * K + T - 1) / T) + c - 1) / c;
+    inline constexpr uint32_t xof_offset_bits = (((1 << B) * K + T - 1) / T + margin) * B + 16;
+    inline constexpr uint32_t xof_block_idx = (xof_offset_bits + 32 + 255) >> 8;
 }
 
 namespace AddressTypes
