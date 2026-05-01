@@ -5,6 +5,7 @@
 #include <cstring>
 #include <cmath>
 #include <arpa/inet.h>
+#include <algorithm>
 #include "constants.h"
 
 using namespace Parameters;

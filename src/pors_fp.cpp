@@ -43,8 +43,8 @@ namespace PORS_FP {
         for (uint32_t blk = 0; blk < UINT32_MAX; blk++)
         {
             uint32_t ctr_be = htonl(blk);
-            ctx = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
-            sha256_finalize_32(ctx, block);
+            auto ctx_ = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
+            sha256_finalize_32(ctx_, block);
 
             if (blk < xof_block_idx)
             {
