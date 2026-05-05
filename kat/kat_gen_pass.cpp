@@ -1,8 +1,8 @@
 // kat_gen_pass.cpp  —  SHRINCS Known-Answer Tests: correct data (PASS cases)
 //
 // Select the parameter set at compile time:
-//   -DSHRINCS_B   →  SHRINCS-B  (HSF=158, L=16, W=256, SWN=2040)   [default]
-//   -DSHRINCS_L   →  SHRINCS-L  (HSF=206, L=64, W=4,   SWN=140)   
+//   -DSHRINCS_B   →  SHRINCS-B  (HSF=141, L=16, W=256, SWN=2040)   [default]
+//   -DSHRINCS_L   →  SHRINCS-L  (HSF=189, L=64, W=4,   SWN=140)   
 //
 // Build examples (from repo root):
 //   Step 1
