@@ -26,16 +26,16 @@ namespace Parameters
     inline constexpr uint32_t M_MAX  = 91;           // Maximum size of the Octopus authentication path
     inline constexpr uint32_t margin = 7;
 #elif defined(SHRINCS_B32)
-    inline constexpr uint32_t W      = 16;
-    inline constexpr uint32_t L      = 32;
-    inline constexpr uint32_t SWN    = 240;
-    inline constexpr uint32_t HSF    = 261;
-    inline constexpr uint32_t HSL    = 40;
+    inline constexpr uint32_t W      = 256;
+    inline constexpr uint32_t L      = 16;
+    inline constexpr uint32_t SWN    = 2040;
+    inline constexpr uint32_t HSF    = 210;
+    inline constexpr uint32_t HSL    = 32;
     inline constexpr uint32_t D      = 4;
-    inline constexpr uint32_t T      = 475343;
-    inline constexpr uint32_t B      = 19;
-    inline constexpr uint32_t K      = 9;
-    inline constexpr uint32_t M_MAX  = 108;
+    inline constexpr uint32_t T      = 109571;
+    inline constexpr uint32_t B      = 17;
+    inline constexpr uint32_t K      = 11;
+    inline constexpr uint32_t M_MAX  = 111;
     inline constexpr uint32_t margin = 10;
 #else // SHRINCS_L
     inline constexpr uint32_t W      = 4;      
