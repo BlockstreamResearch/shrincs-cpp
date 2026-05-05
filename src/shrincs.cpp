@@ -8,8 +8,9 @@ namespace SHRINCS {
     State::State() {}
 
     void generate_random_bytes(unsigned char* buffer, size_t length) {
-        if (RAND_bytes(buffer, length) != 1) {
-            throw std::runtime_error("OpenSSL failed to generate random bytes");
+        std::random_device rd;
+        for (int i = 0; i < length; ++i) {
+            buffer[i] = static_cast<unsigned char>(rd() & 0xFF); 
         }
     }
 
@@ -49,8 +50,7 @@ namespace SHRINCS {
 
         unsigned char* adrs = new unsigned char[32]();
 
-        SHA256_CTX hash_ctx;
-        SHA256_Init(&hash_ctx);
+        CSHA256 hash_ctx;
 
         hash_ctx = sha256_add_to_ctx(hash_ctx, pk_seed, N);
         // Add zeros
@@ -108,8 +108,7 @@ namespace SHRINCS {
 
         unsigned char* adrs = new unsigned char[32]();
 
-        SHA256_CTX hash_ctx;
-        SHA256_Init(&hash_ctx);
+        CSHA256 hash_ctx;
 
         hash_ctx = sha256_add_to_ctx(hash_ctx, sk.pk.seed.data(), N);
         // Add zeros
@@ -138,8 +137,7 @@ namespace SHRINCS {
     {
         unsigned char* adrs = new unsigned char[32]();
 
-        SHA256_CTX hash_ctx;
-        SHA256_Init(&hash_ctx);
+        CSHA256 hash_ctx;
 
         hash_ctx = sha256_add_to_ctx(hash_ctx, sk.pk.seed.data(), N);
         // Add zeros
@@ -232,8 +230,7 @@ namespace SHRINCS {
 
         bool last_sf_level = !(q_raw < HSF);
 
-        SHA256_CTX hash_ctx;
-        SHA256_Init(&hash_ctx);
+        CSHA256 hash_ctx;
 
         hash_ctx = sha256_add_to_ctx(hash_ctx, pk.seed.data(), N);
         // Add zeros
@@ -289,16 +286,14 @@ namespace SHRINCS {
 
         const unsigned char* r = pors_sig;
 
-        SHA256_CTX hash_ctx;
-        SHA256_Init(&hash_ctx);
+        CSHA256 hash_ctx;
 
         hash_ctx = sha256_add_to_ctx(hash_ctx, pk.seed.data(), N);
         // Add zeros
         hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
         hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 16);
 
-        SHA256_CTX ctx;
-        SHA256_Init(&ctx);
+        CSHA256 ctx;
 
         setTypeAndClear(adrs, SL_H_MSG);
         ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);

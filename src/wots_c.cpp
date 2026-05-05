@@ -24,7 +24,7 @@ namespace WOTS_C
         }
     }
 
-    void chain(const unsigned char* m, uint32_t start, uint32_t steps, SHA256_CTX hash_ctx, unsigned char* adrs, unsigned char* out) 
+    void chain(const unsigned char* m, uint32_t start, uint32_t steps, CSHA256 hash_ctx, unsigned char* adrs, unsigned char* out) 
     {
         memcpy(out, m, N);
 
@@ -37,7 +37,7 @@ namespace WOTS_C
         }
     }
 
-    unsigned char* wots_pk_gen(const unsigned char* sk_seed, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t keypair, bool sf)
+    unsigned char* wots_pk_gen(const unsigned char* sk_seed, CSHA256 hash_ctx, unsigned char* adrs, uint32_t keypair, bool sf)
     {
         uint32_t WOTS_HASH, WOTS_PK, WOTS_PRF_TYPE;
         if (sf)
@@ -91,10 +91,9 @@ namespace WOTS_C
         return res;
     }
 
-    uint32_t wots_grind(const unsigned char* message, uint32_t message_len, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t keypair, unsigned char* msg_out, bool sf)
+    uint32_t wots_grind(const unsigned char* message, uint32_t message_len, CSHA256 hash_ctx, unsigned char* adrs, uint32_t keypair, unsigned char* msg_out, bool sf)
     {
-        SHA256_CTX ctx;
-        SHA256_Init(&ctx);
+        CSHA256 ctx;
 
         if (sf)
         {
@@ -167,10 +166,9 @@ namespace WOTS_C
         throw std::runtime_error("Unnable to find valid wots message digest");
     }
 
-    bool wots_digest(const unsigned char* message, uint32_t message_len, SHA256_CTX hash_ctx, uint32_t ctr, unsigned char* adrs, uint32_t keypair, unsigned char* msg_out, bool sf)
+    bool wots_digest(const unsigned char* message, uint32_t message_len, CSHA256 hash_ctx, uint32_t ctr, unsigned char* adrs, uint32_t keypair, unsigned char* msg_out, bool sf)
     {
-        SHA256_CTX ctx;
-        SHA256_Init(&ctx);
+        CSHA256 ctx;
 
         if (sf)
         {
@@ -200,7 +198,7 @@ namespace WOTS_C
         return sum == SWN;
     }
 
-    unsigned char* wots_sign(const unsigned char* message, uint32_t message_len, const unsigned char* sk_seed, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t keypair, bool sf, bool is_internal) 
+    unsigned char* wots_sign(const unsigned char* message, uint32_t message_len, const unsigned char* sk_seed, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, CSHA256 hash_ctx, unsigned char* adrs, uint32_t keypair, bool sf, bool is_internal) 
     {
         unsigned char* sig = new unsigned char[WOTS_SIGN_LEN];
 
@@ -231,8 +229,7 @@ namespace WOTS_C
         }
         else
         {
-            SHA256_CTX ctx;
-            SHA256_Init(&ctx);
+            CSHA256 ctx;
 
             setTypeAndClear(adrs, H_MSG_TYPE);
             ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
@@ -279,7 +276,7 @@ namespace WOTS_C
         return sig;
     }
 
-    unsigned char* wots_pk_from_sig(const unsigned char* sig, const unsigned char* message, uint32_t message_len, const unsigned char* pk_root, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t keypair, bool sf, bool is_internal)
+    unsigned char* wots_pk_from_sig(const unsigned char* sig, const unsigned char* message, uint32_t message_len, const unsigned char* pk_root, CSHA256 hash_ctx, unsigned char* adrs, uint32_t keypair, bool sf, bool is_internal)
     {
         uint32_t WOTS_HASH, WOTS_PK, H_MSG_TYPE;
         if (sf)
@@ -311,8 +308,7 @@ namespace WOTS_C
         }
         else
         {
-            SHA256_CTX ctx;
-            SHA256_Init(&ctx);
+            CSHA256 ctx;
 
             setTypeAndClear(adrs, H_MSG_TYPE);
             ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);

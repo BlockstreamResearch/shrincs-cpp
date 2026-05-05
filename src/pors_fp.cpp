@@ -29,7 +29,7 @@ namespace PORS_FP {
         return false;
     }
 
-    unsigned char* pors_msg_to_indices(const unsigned char* message, unsigned char* adrs, SHA256_CTX hash_ctx, uint32_t* indices_out, unsigned char* xof_out)
+    unsigned char* pors_msg_to_indices(const unsigned char* message, unsigned char* adrs, CSHA256 hash_ctx, uint32_t* indices_out, unsigned char* xof_out)
     {
         unsigned char block[32];
         uint32_t xof_offset = 0;
@@ -135,10 +135,9 @@ namespace PORS_FP {
         return true;
     }
 
-    void pors_grind(const unsigned char* message, uint32_t message_len, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, unsigned char* adrs, unsigned char* opt_rand, SHA256_CTX hash_ctx, uint32_t* indices_out, unsigned char* digest_out, unsigned char* r_out)
+    void pors_grind(const unsigned char* message, uint32_t message_len, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, unsigned char* adrs, unsigned char* opt_rand, CSHA256 hash_ctx, uint32_t* indices_out, unsigned char* digest_out, unsigned char* r_out)
     {
-        SHA256_CTX ctx;
-        SHA256_Init(&ctx);
+        CSHA256 ctx;
 
         setTypeAndClear(adrs, SL_H_MSG);
 
@@ -207,7 +206,7 @@ namespace PORS_FP {
         throw std::runtime_error("Unnable to find valid pors message digest");
     }
 
-    unsigned char* pors_sk_gen(const unsigned char* sk_seed, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t leaf_idx)
+    unsigned char* pors_sk_gen(const unsigned char* sk_seed, CSHA256 hash_ctx, unsigned char* adrs, uint32_t leaf_idx)
     {
         setTypeAndClear(adrs, PORS_PRF);
         setKeyPairAddress(adrs, 0);
@@ -221,7 +220,7 @@ namespace PORS_FP {
         return res;
     }
 
-    unsigned char* pors_treehash(const unsigned char* sk_seed, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t target_height, uint32_t idx)
+    unsigned char* pors_treehash(const unsigned char* sk_seed, CSHA256 hash_ctx, unsigned char* adrs, uint32_t target_height, uint32_t idx)
     {
         unsigned char* res = new unsigned char[N];
 
@@ -279,7 +278,7 @@ namespace PORS_FP {
         return res;
     }
 
-    unsigned char* pors_auth_path(const unsigned char* sk_seed, SHA256_CTX hash_ctx, unsigned char* adrs, uint32_t* indices, uint32_t& A_len)
+    unsigned char* pors_auth_path(const unsigned char* sk_seed, CSHA256 hash_ctx, unsigned char* adrs, uint32_t* indices, uint32_t& A_len)
     {
         unsigned char* tmp;
         auto A = new std::tuple<uint32_t, uint32_t>[M_MAX];
@@ -300,7 +299,7 @@ namespace PORS_FP {
         return auth;
     }
 
-    unsigned char* pors_sign(const unsigned char* message, uint32_t message_len, const unsigned char* sk_seed, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, SHA256_CTX hash_ctx, unsigned char* adrs, unsigned char* digest_out)
+    unsigned char* pors_sign(const unsigned char* message, uint32_t message_len, const unsigned char* sk_seed, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, CSHA256 hash_ctx, unsigned char* adrs, unsigned char* digest_out)
     {
         unsigned char* sig = new unsigned char[PORS_SIGN_LEN]();
 
@@ -335,7 +334,7 @@ namespace PORS_FP {
         return sig;
     }
 
-    unsigned char* pors_pk_from_sig(const unsigned char* sig, uint32_t indices[K], SHA256_CTX hash_ctx, unsigned char* adrs)
+    unsigned char* pors_pk_from_sig(const unsigned char* sig, uint32_t indices[K], CSHA256 hash_ctx, unsigned char* adrs)
     {
         uint32_t offset = R_LEN;
 

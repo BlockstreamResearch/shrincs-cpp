@@ -1,7 +1,7 @@
 #ifndef SHRINCS_H
 #define SHRINCS_H
 
-#include <openssl/rand.h>
+#include <random>
 #include <vector>
 #include "uxmss.h"
 #include "xmss.h"
