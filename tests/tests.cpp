@@ -12,12 +12,11 @@ TEST(WOTSTest, SignVerify) {
     unsigned char pk_root[N];
     unsigned char* adrs = new unsigned char[32]();
 
-    SHA256_CTX hash_ctx;
-    SHA256_Init(&hash_ctx);
+    CSHA256 hash_ctx;
 
-    hash_ctx = sha256_add_to_ctx(hash_ctx, pk_seed, N);
-    hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-    hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 16);
+    sha256_add_to_ctx(hash_ctx, pk_seed, N);
+    sha256_add_to_ctx(hash_ctx, adrs, 32);
+    sha256_add_to_ctx(hash_ctx, adrs, 16);
 
     auto signature = WOTS_C::wots_sign(message.data(), message.size(), sk_seed, sk_prf, pk_seed, pk_root, hash_ctx, adrs, 10, true, false);
     auto pkey = WOTS_C::wots_pk_from_sig(signature, message.data(), message.size(), pk_root, hash_ctx, adrs, 10, true, false);
@@ -40,12 +39,11 @@ TEST(XMSSTest, SignVerify) {
     unsigned char pk_root[N];
     unsigned char* adrs = new unsigned char[32]();
 
-    SHA256_CTX hash_ctx;
-    SHA256_Init(&hash_ctx);
+    CSHA256 hash_ctx;
 
-    hash_ctx = sha256_add_to_ctx(hash_ctx, pk_seed, N);
-    hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-    hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 16);
+    sha256_add_to_ctx(hash_ctx, pk_seed, N);
+    sha256_add_to_ctx(hash_ctx, adrs, 32);
+    sha256_add_to_ctx(hash_ctx, adrs, 16);
 
     auto signature = XMSS::xmss_sign(message.data(), sk_seed, sk_prf, pk_seed, pk_root, hash_ctx, adrs, H_PRIME, 2);
     auto pkey = XMSS::xmss_pk_from_sig(signature, signature + WOTS_SIGN_LEN, message.data(), pk_root, hash_ctx, adrs, H_PRIME, 2);
@@ -68,12 +66,11 @@ TEST(UXMSSTest, SignVerify) {
     unsigned char pk_root[N];
     unsigned char* adrs = new unsigned char[32]();
 
-    SHA256_CTX hash_ctx;
-    SHA256_Init(&hash_ctx);
+    CSHA256 hash_ctx;
 
-    hash_ctx = sha256_add_to_ctx(hash_ctx, pk_seed, N);
-    hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-    hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 16);
+    sha256_add_to_ctx(hash_ctx, pk_seed, N);
+    sha256_add_to_ctx(hash_ctx, adrs, 32);
+    sha256_add_to_ctx(hash_ctx, adrs, 16);
 
     auto signature = UXMSS::uxmss_sign(message.data(), message.size(), sk_seed, sk_prf, pk_seed, pk_root, hash_ctx, adrs, 2);
     auto pkey = UXMSS::uxmss_pk_from_sig(signature, signature + WOTS_SIGN_LEN, message.data(), message.size(), pk_root, hash_ctx, adrs, 2);

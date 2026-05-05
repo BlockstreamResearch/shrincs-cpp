@@ -16,9 +16,10 @@ namespace XMSS
         setTreeHeight(adrs, target_height);
         setTreeIndex(adrs, start_idx >> target_height);
 
-        auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        ctx = sha256_add_to_ctx(ctx, left, N);
-        ctx = sha256_add_to_ctx(ctx, right, N);
+        CSHA256 ctx = hash_ctx;
+        sha256_add_to_ctx(ctx, adrs, 32);
+        sha256_add_to_ctx(ctx, left, N);
+        sha256_add_to_ctx(ctx, right, N);
 
         unsigned char* res = new unsigned char[N];
         sha256_finalize(ctx, res);
@@ -61,16 +62,17 @@ namespace XMSS
             unsigned char auth_node[N];
             memcpy(auth_node, auth + N*i, N);
 
-            auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
+            CSHA256 ctx = hash_ctx;
+            sha256_add_to_ctx(ctx, adrs, 32);
             if ((idx & 1) == 0)
             {
-                ctx = sha256_add_to_ctx(ctx, node, N);
-                ctx = sha256_add_to_ctx(ctx, auth_node, N);
+                sha256_add_to_ctx(ctx, node, N);
+                sha256_add_to_ctx(ctx, auth_node, N);
             }
             else
             {
-                ctx = sha256_add_to_ctx(ctx, auth_node, N);
-                ctx = sha256_add_to_ctx(ctx, node, N);
+                sha256_add_to_ctx(ctx, auth_node, N);
+                sha256_add_to_ctx(ctx, node, N);
             }
 
             sha256_finalize(ctx, node);

@@ -8,7 +8,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include <btc_sha/cpuid.h>
+#include <btc_sha/compat_cpuid.h>
 
 #if defined(__linux__) && defined(ENABLE_ARM_SHANI) && !defined(BUILD_BITCOIN_INTERNAL)
 #include <sys/auxv.h>

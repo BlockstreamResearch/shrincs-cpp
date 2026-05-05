@@ -20,9 +20,11 @@ namespace UXMSS
         setTreeHeight(adrs, HSF - level);
         setTreeIndex(adrs, 0);
 
-        auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        ctx = sha256_add_to_ctx(ctx, left, N);
-        ctx = sha256_add_to_ctx(ctx, right, N);
+        CSHA256 ctx = hash_ctx;
+
+        sha256_add_to_ctx(ctx, adrs, 32);
+        sha256_add_to_ctx(ctx, left, N);
+        sha256_add_to_ctx(ctx, right, N);
 
         unsigned char* res = new unsigned char[N];
         sha256_finalize(ctx, res);
@@ -93,9 +95,11 @@ namespace UXMSS
             setTreeHeight(adrs, HSF - (q - 1));
             setTreeIndex(adrs, 0);
 
-            auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-            ctx = sha256_add_to_ctx(ctx, node, N);
-            ctx = sha256_add_to_ctx(ctx, auth, N);
+            CSHA256 ctx = hash_ctx;
+
+            sha256_add_to_ctx(ctx, adrs, 32);
+            sha256_add_to_ctx(ctx, node, N);
+            sha256_add_to_ctx(ctx, auth, N);
 
             sha256_finalize(ctx, node);
 
@@ -104,9 +108,10 @@ namespace UXMSS
                 setTreeHeight(adrs, HSF - (q - 1 - i));
                 setTreeIndex(adrs, 0);
 
-                ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-                ctx = sha256_add_to_ctx(ctx, auth + N*i, N);
-                ctx = sha256_add_to_ctx(ctx, node, N);
+                ctx = hash_ctx;
+                sha256_add_to_ctx(ctx, adrs, 32);
+                sha256_add_to_ctx(ctx, auth + N*i, N);
+                sha256_add_to_ctx(ctx, node, N);
 
                 sha256_finalize(ctx, node);
             }
@@ -118,9 +123,11 @@ namespace UXMSS
                 setTreeHeight(adrs, i + 1);
                 setTreeIndex(adrs, 0);
 
-                auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-                ctx = sha256_add_to_ctx(ctx, auth + N*i, N);
-                ctx = sha256_add_to_ctx(ctx, node, N);
+                CSHA256 ctx = hash_ctx;
+
+                sha256_add_to_ctx(ctx, adrs, 32);
+                sha256_add_to_ctx(ctx, auth + N*i, N);
+                sha256_add_to_ctx(ctx, node, N);
 
                 sha256_finalize(ctx, node);
             }

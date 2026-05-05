@@ -31,8 +31,9 @@ namespace WOTS_C
         for (uint32_t i = start; i < start + steps; i++)
         {
             setHashAddress(adrs, i);
-            auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-            ctx = sha256_add_to_ctx(ctx, out, N);
+            CSHA256 ctx = hash_ctx;
+            sha256_add_to_ctx(ctx, adrs, 32);
+            sha256_add_to_ctx(ctx, out, N);
             sha256_finalize(ctx, out);
         }
     }
@@ -62,8 +63,9 @@ namespace WOTS_C
             setKeyPairAddress(adrs, keypair);
             setChainAddress(adrs, i);
             
-            auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-            ctx = sha256_add_to_ctx(ctx, sk_seed, N);
+            CSHA256 ctx = hash_ctx;
+            sha256_add_to_ctx(ctx, adrs, 32);
+            sha256_add_to_ctx(ctx, sk_seed, N);
 
             unsigned char sk_i[N];
             sha256_finalize(ctx, sk_i);
@@ -78,11 +80,12 @@ namespace WOTS_C
         setTypeAndClear(adrs, WOTS_PK);
         setKeyPairAddress(adrs, keypair);
 
-        auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
+        CSHA256 ctx = hash_ctx;
+        sha256_add_to_ctx(ctx, adrs, 32);
 
         for(auto i : pk) 
         {
-            ctx = sha256_add_to_ctx(ctx, i, N);
+            sha256_add_to_ctx(ctx, i, N);
         }
 
         unsigned char* res = new unsigned char[N];
@@ -106,8 +109,9 @@ namespace WOTS_C
 
         setKeyPairAddress(adrs, keypair);
         
-        ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        ctx = sha256_add_to_ctx(ctx, message, message_len);
+        ctx = hash_ctx;
+        sha256_add_to_ctx(ctx, adrs, 32);
+        sha256_add_to_ctx(ctx, message, message_len);
 
         std::atomic<uint64_t> current_ctr{0};
         std::atomic<bool> found{false};
@@ -128,7 +132,9 @@ namespace WOTS_C
                 }
 
                 uint32_t ctr_be = htonl(ctr);
-                auto ctx_ = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
+
+                CSHA256 ctx_ = ctx;
+                sha256_add_to_ctx(ctx_, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
 
                 sha256_finalize(ctx_, res);
 
@@ -181,11 +187,12 @@ namespace WOTS_C
 
         setKeyPairAddress(adrs, keypair);
 
-        ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        ctx = sha256_add_to_ctx(ctx, message, message_len);
+        ctx = hash_ctx;
+        sha256_add_to_ctx(ctx, adrs, 32);
+        sha256_add_to_ctx(ctx, message, message_len);
 
         uint32_t ctr_be = htonl(ctr);
-        ctx = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
+        sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
 
         unsigned char res[N];
         sha256_finalize(ctx, res);
@@ -229,13 +236,13 @@ namespace WOTS_C
         }
         else
         {
-            CSHA256 ctx;
+            CSHA256 ctx = hash_ctx;
 
             setTypeAndClear(adrs, H_MSG_TYPE);
-            ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-            ctx = sha256_add_to_ctx(ctx, r, R_LEN);
-            ctx = sha256_add_to_ctx(ctx, pk_root, N);
-            ctx = sha256_add_to_ctx(ctx, message, message_len);
+            sha256_add_to_ctx(ctx, adrs, 32);
+            sha256_add_to_ctx(ctx, r, R_LEN);
+            sha256_add_to_ctx(ctx, pk_root, N);
+            sha256_add_to_ctx(ctx, message, message_len);
             sha256_finalize(ctx, digest);
         }
 
@@ -255,8 +262,10 @@ namespace WOTS_C
             setKeyPairAddress(adrs, keypair);
             setChainAddress(adrs, i);
 
-            auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-            ctx = sha256_add_to_ctx(ctx, sk_seed, N);
+            CSHA256 ctx = hash_ctx;
+
+            sha256_add_to_ctx(ctx, adrs, 32);
+            sha256_add_to_ctx(ctx, sk_seed, N);
 
             unsigned char sk_i[N];
             sha256_finalize(ctx, sk_i);
@@ -308,13 +317,13 @@ namespace WOTS_C
         }
         else
         {
-            CSHA256 ctx;
+            CSHA256 ctx = hash_ctx;
 
             setTypeAndClear(adrs, H_MSG_TYPE);
-            ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-            ctx = sha256_add_to_ctx(ctx, r, R_LEN);
-            ctx = sha256_add_to_ctx(ctx, pk_root, N);
-            ctx = sha256_add_to_ctx(ctx, message, message_len);
+            sha256_add_to_ctx(ctx, adrs, 32);
+            sha256_add_to_ctx(ctx, r, R_LEN);
+            sha256_add_to_ctx(ctx, pk_root, N);
+            sha256_add_to_ctx(ctx, message, message_len);
             sha256_finalize(ctx, digest);
         }
 
@@ -345,11 +354,12 @@ namespace WOTS_C
         setTypeAndClear(adrs, WOTS_PK);
         setKeyPairAddress(adrs, keypair);
         
-        auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
+        CSHA256 ctx = hash_ctx;
+        sha256_add_to_ctx(ctx, adrs, 32);
 
         for(auto i : pk) 
         {
-            ctx = sha256_add_to_ctx(ctx, i, N);
+            sha256_add_to_ctx(ctx, i, N);
         }
 
         unsigned char* res = new unsigned char[N];

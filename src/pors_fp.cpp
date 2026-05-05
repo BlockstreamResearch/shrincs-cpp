@@ -37,13 +37,16 @@ namespace PORS_FP {
         uint32_t indices_amount = 0;
 
         setTypeAndClear(adrs, PORS_XOF);
-        auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        ctx = sha256_add_to_ctx(ctx, message, 32);
+        CSHA256 ctx = hash_ctx;
+
+        sha256_add_to_ctx(ctx, adrs, 32);
+        sha256_add_to_ctx(ctx, message, 32);
 
         for (uint32_t blk = 0; blk < UINT32_MAX; blk++)
         {
+            CSHA256 ctx_ = ctx;
             uint32_t ctr_be = htonl(blk);
-            auto ctx_ = sha256_add_to_ctx(ctx, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
+            sha256_add_to_ctx(ctx_, reinterpret_cast<const unsigned char*>(&ctr_be), 4);
             sha256_finalize_32(ctx_, block);
 
             if (blk < xof_block_idx)
@@ -137,11 +140,10 @@ namespace PORS_FP {
 
     void pors_grind(const unsigned char* message, uint32_t message_len, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, unsigned char* adrs, unsigned char* opt_rand, CSHA256 hash_ctx, uint32_t* indices_out, unsigned char* digest_out, unsigned char* r_out)
     {
-        CSHA256 ctx;
-
         setTypeAndClear(adrs, SL_H_MSG);
 
-        ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
+        CSHA256 ctx = hash_ctx;
+        sha256_add_to_ctx(ctx, adrs, 32);
 
         std::atomic<uint64_t> current_ctr{0};
         std::atomic<bool> found{false};
@@ -166,9 +168,10 @@ namespace PORS_FP {
 
                 prf_msg(sk_prf, pk_seed, opt_rand, message, message_len, true, ctr, R_LEN, local_r_out);
 
-                auto ctx_ = sha256_add_to_ctx(ctx, local_r_out, R_LEN);
-                ctx_ = sha256_add_to_ctx(ctx_, pk_root, N);
-                ctx_ = sha256_add_to_ctx(ctx_, message, message_len);
+                CSHA256 ctx_ = ctx;
+                sha256_add_to_ctx(ctx_, local_r_out, R_LEN);
+                sha256_add_to_ctx(ctx_, pk_root, N);
+                sha256_add_to_ctx(ctx_, message, message_len);
                 sha256_finalize_32(ctx_, local_digest_out);
 
                 pors_msg_to_indices(local_digest_out, adrs, hash_ctx, local_indices_out, local_xof_out);
@@ -213,8 +216,9 @@ namespace PORS_FP {
         setTreeIndex(adrs, leaf_idx);
 
         unsigned char* res = new unsigned char[N];
-        auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        ctx = sha256_add_to_ctx(ctx, sk_seed, N);
+        CSHA256 ctx = hash_ctx;
+        sha256_add_to_ctx(ctx, adrs, 32);
+        sha256_add_to_ctx(ctx, sk_seed, N);
         sha256_finalize(ctx, res);
 
         return res;
@@ -227,6 +231,8 @@ namespace PORS_FP {
         uint32_t h = ceil(log2(T));
         uint32_t s = T - (1 << (h - 1));
 
+        CSHA256 ctx = hash_ctx;
+
         if (target_height == 0)
         {
             auto sk = pors_sk_gen(sk_seed, hash_ctx, adrs, idx);
@@ -235,8 +241,8 @@ namespace PORS_FP {
             setTreeHeight(adrs, 0);
             setTreeIndex(adrs, idx);
 
-            auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-            ctx = sha256_add_to_ctx(ctx, sk, N);
+            sha256_add_to_ctx(ctx, adrs, 32);
+            sha256_add_to_ctx(ctx, sk, N);
             sha256_finalize(ctx, res);
 
             delete[] sk;
@@ -251,8 +257,8 @@ namespace PORS_FP {
             setTreeHeight(adrs, 0);
             setTreeIndex(adrs, leaf_idx);
 
-            auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-            ctx = sha256_add_to_ctx(ctx, sk, N);
+            sha256_add_to_ctx(ctx, adrs, 32);
+            sha256_add_to_ctx(ctx, sk, N);
             sha256_finalize(ctx, res);
 
             delete[] sk;
@@ -267,9 +273,10 @@ namespace PORS_FP {
         setTreeHeight(adrs, target_height);
         setTreeIndex(adrs, idx);
 
-        auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        ctx = sha256_add_to_ctx(ctx, left, N);
-        ctx = sha256_add_to_ctx(ctx, right, N);
+        ctx = hash_ctx;
+        sha256_add_to_ctx(ctx, adrs, 32);
+        sha256_add_to_ctx(ctx, left, N);
+        sha256_add_to_ctx(ctx, right, N);
         sha256_finalize(ctx, res);
 
         delete[] left;
@@ -358,8 +365,9 @@ namespace PORS_FP {
             setTreeHeight(adrs, 0);
             setTreeIndex(adrs, indices[i]);
 
-            auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-            ctx = sha256_add_to_ctx(ctx, sk_i, N);
+            CSHA256 ctx = hash_ctx;
+            sha256_add_to_ctx(ctx, adrs, 32);
+            sha256_add_to_ctx(ctx, sk_i, N);
             sha256_finalize(ctx, val);
 
             if (indices[i] < 2*s)
@@ -401,12 +409,13 @@ namespace PORS_FP {
                 setTreeHeight(adrs, cur_lvl + 1);
                 setTreeIndex(adrs, idx >> 1);
 
-                auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
+                CSHA256 ctx = hash_ctx;
+                sha256_add_to_ctx(ctx, adrs, 32);
 
                 if (paired[i])
                 {
-                    ctx = sha256_add_to_ctx(ctx, std::get<2>(I[i-1]).data(), N);
-                    ctx = sha256_add_to_ctx(ctx, val.data(), N);
+                    sha256_add_to_ctx(ctx, std::get<2>(I[i-1]).data(), N);
+                    sha256_add_to_ctx(ctx, val.data(), N);
                 }
                 else
                 {
@@ -414,13 +423,13 @@ namespace PORS_FP {
                     offset += N;
                     if ((idx & 1) == 0) 
                     {
-                        ctx = sha256_add_to_ctx(ctx, val.data(), N);
-                        ctx = sha256_add_to_ctx(ctx, auth_val, N);
+                        sha256_add_to_ctx(ctx, val.data(), N);
+                        sha256_add_to_ctx(ctx, auth_val, N);
                     }
                     else
                     {
-                        ctx = sha256_add_to_ctx(ctx, auth_val, N);
-                        ctx = sha256_add_to_ctx(ctx, val.data(), N);
+                        sha256_add_to_ctx(ctx, auth_val, N);
+                        sha256_add_to_ctx(ctx, val.data(), N);
                     }
                 }
                 sha256_finalize(ctx, parent_val);
@@ -443,8 +452,9 @@ namespace PORS_FP {
         auto res = new unsigned char[N];
         setTypeAndClear(adrs, PORS_PK);
 
-        auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        ctx = sha256_add_to_ctx(ctx, root.data(), N);
+        CSHA256 ctx = hash_ctx;
+        sha256_add_to_ctx(ctx, adrs, 32);
+        sha256_add_to_ctx(ctx, root.data(), N);
         sha256_finalize(ctx, res);
         return res;
     }

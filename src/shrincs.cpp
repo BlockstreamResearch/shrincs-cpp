@@ -52,10 +52,10 @@ namespace SHRINCS {
 
         CSHA256 hash_ctx;
 
-        hash_ctx = sha256_add_to_ctx(hash_ctx, pk_seed, N);
+        sha256_add_to_ctx(hash_ctx, pk_seed, N);
         // Add zeros
-        hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 16);
+        sha256_add_to_ctx(hash_ctx, adrs, 32);
+        sha256_add_to_ctx(hash_ctx, adrs, 16);
 
         auto pk_sf = UXMSS::uxmss_root(sk_seed, hash_ctx, adrs);
 
@@ -67,9 +67,11 @@ namespace SHRINCS {
         setTreeAddress(adrs, 0, 0);
         setTypeAndClear(adrs, ROOT);
         unsigned char* pk_root = new unsigned char[N];
-        auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        ctx = sha256_add_to_ctx(ctx, pk_sf, N);
-        ctx = sha256_add_to_ctx(ctx, pk_sl, N);
+
+        CSHA256 ctx = hash_ctx;
+        sha256_add_to_ctx(ctx, adrs, 32);
+        sha256_add_to_ctx(ctx, pk_sf, N);
+        sha256_add_to_ctx(ctx, pk_sl, N);
         sha256_finalize(ctx, pk_root);
 
         memcpy(out_sk.seed.data(), sk_seed, N);
@@ -110,10 +112,10 @@ namespace SHRINCS {
 
         CSHA256 hash_ctx;
 
-        hash_ctx = sha256_add_to_ctx(hash_ctx, sk.pk.seed.data(), N);
+        sha256_add_to_ctx(hash_ctx, sk.pk.seed.data(), N);
         // Add zeros
-        hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 16);
+        sha256_add_to_ctx(hash_ctx, adrs, 32);
+        sha256_add_to_ctx(hash_ctx, adrs, 16);
 
         auto uxmss_sig = UXMSS::uxmss_sign(message.data(), message.size(), sk.seed.data(), sk.prf.data(), sk.pk.seed.data(), sk.pk.root.data(), hash_ctx, adrs, q);
         state.q = q;
@@ -139,10 +141,10 @@ namespace SHRINCS {
 
         CSHA256 hash_ctx;
 
-        hash_ctx = sha256_add_to_ctx(hash_ctx, sk.pk.seed.data(), N);
+        sha256_add_to_ctx(hash_ctx, sk.pk.seed.data(), N);
         // Add zeros
-        hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 16);
+        sha256_add_to_ctx(hash_ctx, adrs, 32);
+        sha256_add_to_ctx(hash_ctx, adrs, 16);
 
         unsigned char* digest = new unsigned char[32];
 
@@ -232,10 +234,10 @@ namespace SHRINCS {
 
         CSHA256 hash_ctx;
 
-        hash_ctx = sha256_add_to_ctx(hash_ctx, pk.seed.data(), N);
+        sha256_add_to_ctx(hash_ctx, pk.seed.data(), N);
         // Add zeros
-        hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 16);
+        sha256_add_to_ctx(hash_ctx, adrs, 32);
+        sha256_add_to_ctx(hash_ctx, adrs, 16);
 
         for (int j = 0; j < (last_sf_level ? 2 : 1); j++)
         {
@@ -245,9 +247,11 @@ namespace SHRINCS {
 
                 unsigned char* root = new unsigned char[N];
                 setTypeAndClear(adrs, ROOT);
-                auto ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-                ctx = sha256_add_to_ctx(ctx, sf, N);
-                ctx = sha256_add_to_ctx(ctx, sl, N);
+
+                CSHA256 ctx = hash_ctx;
+                sha256_add_to_ctx(ctx, adrs, 32);
+                sha256_add_to_ctx(ctx, sf, N);
+                sha256_add_to_ctx(ctx, sl, N);
                 sha256_finalize(ctx, root);
 
                 bool is_valid = memcmp(root, pk.root.data(), N) == 0;
@@ -288,18 +292,18 @@ namespace SHRINCS {
 
         CSHA256 hash_ctx;
 
-        hash_ctx = sha256_add_to_ctx(hash_ctx, pk.seed.data(), N);
+        sha256_add_to_ctx(hash_ctx, pk.seed.data(), N);
         // Add zeros
-        hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        hash_ctx = sha256_add_to_ctx(hash_ctx, adrs, 16);
+        sha256_add_to_ctx(hash_ctx, adrs, 32);
+        sha256_add_to_ctx(hash_ctx, adrs, 16);
 
-        CSHA256 ctx;
+        CSHA256 ctx = hash_ctx;
 
         setTypeAndClear(adrs, SL_H_MSG);
-        ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        ctx = sha256_add_to_ctx(ctx, r, R_LEN);
-        ctx = sha256_add_to_ctx(ctx, pk.root.data(), N);
-        ctx = sha256_add_to_ctx(ctx, message.data(), message.size());
+        sha256_add_to_ctx(ctx, adrs, 32);
+        sha256_add_to_ctx(ctx, r, R_LEN);
+        sha256_add_to_ctx(ctx, pk.root.data(), N);
+        sha256_add_to_ctx(ctx, message.data(), message.size());
 
         unsigned char* digest = new unsigned char[32];
         sha256_finalize_32(ctx, digest);
@@ -394,9 +398,11 @@ namespace SHRINCS {
         setTreeAddress(adrs, 0, 0);
         unsigned char* root = new unsigned char[N];
         setTypeAndClear(adrs, ROOT);
-        ctx = sha256_add_to_ctx(hash_ctx, adrs, 32);
-        ctx = sha256_add_to_ctx(ctx, sf, N);
-        ctx = sha256_add_to_ctx(ctx, sl, N);
+
+        ctx = hash_ctx;
+        sha256_add_to_ctx(ctx, adrs, 32);
+        sha256_add_to_ctx(ctx, sf, N);
+        sha256_add_to_ctx(ctx, sl, N);
         sha256_finalize(ctx, root);
 
         bool is_valid = memcmp(root, pk.root.data(), N) == 0;
