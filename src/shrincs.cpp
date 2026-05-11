@@ -20,10 +20,9 @@ namespace SHRINCS {
 
         for (uint32_t layer = 0; layer < D; layer++)
         {
-            uint32_t leaf = idx & ((1 << H_PRIME) - 1);
-            memcpy(idx_leaf + layer, &leaf, 4);
+            idx_leaf[layer] = idx & ((1 << H_PRIME) - 1);
             idx >>= H_PRIME;
-            memcpy(idx_tree + layer, &idx, 4);
+            idx_tree[layer] = idx;
         }
     }
 
@@ -345,22 +344,7 @@ namespace SHRINCS {
         setLayerAddress(adrs, 0);
         setTreeAddress(adrs, 0, tree_idx[0] * (1 << H_PRIME) + leaf_idx[0]);
 
-        unsigned char* pors_pk;
-        try
-        {
-            pors_pk = PORS_FP::pors_pk_from_sig(pors_sig, indices, hash_ctx, adrs);
-        }
-        catch(const std::exception& e)
-        {
-            delete[] adrs;
-            delete[] sf;
-            delete[] digest;
-            delete[] tree_idx;
-            delete[] leaf_idx;
-            delete[] A;
-            delete[] xof_out;
-            return false;
-        }
+        unsigned char* pors_pk = PORS_FP::pors_pk_from_sig(pors_sig, indices, hash_ctx, adrs);
 
         auto msg = pors_pk;
 

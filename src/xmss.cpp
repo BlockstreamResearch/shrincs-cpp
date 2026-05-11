@@ -2,7 +2,7 @@
 
 namespace XMSS 
 {
-    unsigned char* xmss_treehash(const unsigned char* sk_seed, CSHA256 hash_ctx, unsigned char* adrs, uint32_t target_height, uint32_t start_idx)
+    unsigned char* xmss_treehash(const unsigned char* sk_seed, CSHA256& hash_ctx, unsigned char* adrs, uint32_t target_height, uint32_t start_idx)
     {
         if (target_height == 0) 
         {
@@ -10,7 +10,7 @@ namespace XMSS
         }
 
         auto left = xmss_treehash(sk_seed, hash_ctx, adrs, target_height - 1, start_idx);
-        auto right = xmss_treehash(sk_seed, hash_ctx, adrs, target_height - 1, start_idx + pow(2, target_height - 1));
+        auto right = xmss_treehash(sk_seed, hash_ctx, adrs, target_height - 1, start_idx + (1 << (target_height - 1)));
 
         setTypeAndClear(adrs, SL_TREE);
         setTreeHeight(adrs, target_height);
@@ -30,12 +30,12 @@ namespace XMSS
         return res;
     }
 
-    unsigned char* xmss_root(const unsigned char* sk_seed, CSHA256 hash_ctx, unsigned char* adrs, uint32_t h_prime)
+    unsigned char* xmss_root(const unsigned char* sk_seed, CSHA256& hash_ctx, unsigned char* adrs, uint32_t h_prime)
     {
         return xmss_treehash(sk_seed, hash_ctx, adrs, h_prime, 0);
     }
 
-    unsigned char* xmss_auth_path(const unsigned char* sk_seed, CSHA256 hash_ctx, unsigned char* adrs, uint32_t h_prime, uint32_t idx)
+    unsigned char* xmss_auth_path(const unsigned char* sk_seed, CSHA256& hash_ctx, unsigned char* adrs, uint32_t h_prime, uint32_t idx)
     {
         unsigned char* auth = new unsigned char[h_prime * N];
         unsigned char* tmp;
@@ -50,7 +50,7 @@ namespace XMSS
         return auth;
     }
 
-    unsigned char* xmss_pk_from_sig(const unsigned char* wots_sig, const unsigned char* auth, const unsigned char* message, const unsigned char* pk_root, CSHA256 hash_ctx, unsigned char* adrs, uint32_t h_prime, uint32_t idx)
+    unsigned char* xmss_pk_from_sig(const unsigned char* wots_sig, const unsigned char* auth, const unsigned char* message, const unsigned char* pk_root, CSHA256& hash_ctx, unsigned char* adrs, uint32_t h_prime, uint32_t idx)
     {
         auto node = wots_pk_from_sig(wots_sig, message, N, pk_root, hash_ctx, adrs, idx, false, true);
 
@@ -82,7 +82,7 @@ namespace XMSS
         return node;
     }
 
-    unsigned char* xmss_sign(const unsigned char* message, const unsigned char* sk_seed, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, CSHA256 hash_ctx, unsigned char* adrs, uint32_t h_prime, uint32_t idx) 
+    unsigned char* xmss_sign(const unsigned char* message, const unsigned char* sk_seed, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, CSHA256& hash_ctx, unsigned char* adrs, uint32_t h_prime, uint32_t idx) 
     {
         unsigned char* sig = new unsigned char[XMSS_SIGN_LEN];
 

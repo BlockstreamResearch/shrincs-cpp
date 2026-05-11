@@ -39,7 +39,9 @@ namespace HASH
         sha256_add_to_ctx(ctx, message, message_len);
 
         unsigned char hash[32];
-        for (uint32_t i = 0; i < ceil((mask_len + 31) / 32); i++)
+        uint32_t num_blocks = (mask_len + 31) / 32;
+
+        for (uint32_t i = 0; i < num_blocks; i++)
         {
             CSHA256 ctx_ = ctx;
             uint32_t ctr_be = htonl(i);
