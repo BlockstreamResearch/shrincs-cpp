@@ -632,6 +632,48 @@ TEST(SHRINCSTest, MatchesReferenceVectorsUnbalanced) {
     }
 }
 
+// A UXMSS tree of depth 255 drives the auth-path index past a 64-bit shift width,
+// where shifting the leaf index by >= 64 bits would be undefined behaviour.
+TEST(SHRINCSTest, MatchesReferenceVectorsFullDepth) {
+    SecretKey sk;
+    std::vector<unsigned char> seed(3 * N);
+    for (size_t i = 0; i < seed.size(); i++)
+    {
+        seed[i] = static_cast<unsigned char>(i);
+    }
+    ASSERT_TRUE(shrincs_keygen(seed.data(), {FXMSS_SHAPE_UNBALANCED, 255}, sk));
+
+    EXPECT_EQ("804387b0e31475f83d1eafd3ac2045b1", to_hex(sk.pk.sf_root.data(), N));
+
+    std::vector<unsigned char> message(32, 0);
+
+    struct Vector { uint32_t state_ctr; size_t size; const char* digest; };
+    const Vector vectors[] = {
+        {63,  1562, "cc327c6a3491ee7b730b74528fe2adca94b737a755f66b221857c82bab3439a5"},
+        {64,  1578, "4499099c304f0f115fdb072bff6d4836bf6ec8079b964ed08f40c96acdcc4db8"},
+        {65,  1594, "56371e629b52e0d4b9b719ea02913fffbfe280dc2b317aad3d93fb799ac4e2db"},
+        {100, 2154, "2419d2aba64f9c19b0725fea0dc94d5563e060fd75ec8f27ff46c53d8e8eaba5"},
+        {254, 4618, "1317a4867a535668effa38175e08121e217478ee760406d01a3c4c61c01f3382"},
+        {255, 4618, "219f6dae88f703cc96dff57264c623c12c3e91a4bbda8e0e0b8375f322c99666"}
+    };
+
+    for (const Vector& vector : vectors)
+    {
+        std::vector<unsigned char> signature;
+        ASSERT_TRUE(shrincs_sign(message, sk, vector.state_ctr, {}, signature)) << "state_ctr " << vector.state_ctr;
+
+        EXPECT_EQ(vector.size, signature.size()) << "state_ctr " << vector.state_ctr;
+        EXPECT_EQ(vector.digest, sha256_hex(signature)) << "state_ctr " << vector.state_ctr;
+        EXPECT_TRUE(shrincs_verify(message, signature, sk.pk)) << "state_ctr " << vector.state_ctr;
+    }
+
+    // The tree holds tree_depth + 1 leaves, so 256 exhausts it.
+    uint64_t leaf_index;
+    uint8_t leaf_height;
+    EXPECT_TRUE(shrincs_sf_leaf_select(sk.structure, 255, &leaf_index, &leaf_height));
+    EXPECT_FALSE(shrincs_sf_leaf_select(sk.structure, 256, &leaf_index, &leaf_height));
+}
+
 TEST(SHRINCSTest, StructuresProduceDistinctStatefulRoots) {
     EXPECT_NE(balanced_key().pk.sf_root, unbalanced_key().pk.sf_root);
 

@@ -1,7 +1,12 @@
 #include "fxmss.h"
 
-namespace FXMSS 
+namespace FXMSS
 {
+    static uint64_t shift_right(uint64_t value, uint32_t bits)
+    {
+        return bits >= 64 ? 0 : value >> bits;
+    }
+
     bool fxmss_node(const unsigned char* sk_seed, CSHA256& hash_ctx, unsigned char* adrs, const unsigned char* structure, uint64_t node_index, uint32_t node_height, unsigned char* out)
     {
         uint32_t node_depth = FXMSS_HEIGHT - node_height;
@@ -68,7 +73,7 @@ namespace FXMSS
         uint32_t sibling_height, offset = WOTS_C_CHAINS_SIZE + 2;
         for (uint32_t i = 0; i < leaf_depth; i++)
         {
-            sibling_index = (leaf_index >> i) ^ 1;
+            sibling_index = shift_right(leaf_index, i) ^ 1;
             sibling_height = leaf_height + i;
             if(!fxmss_node(sk_seed, hash_ctx, adrs, structure, sibling_index, sibling_height, out + offset)) return false;
             offset += N;
@@ -101,9 +106,9 @@ namespace FXMSS
         for (uint32_t i = 0; i < leaf_depth; i++)
         {
             adrs[0] += 1;
-            setTreeAddress(adrs, leaf_index >> (i + 1));
-            
-            if(((leaf_index >> i) & 1) == 1)
+            setTreeAddress(adrs, shift_right(leaf_index, i + 1));
+
+            if((shift_right(leaf_index, i) & 1) == 1)
             {
                 memcpy(nodes, sig + offset, N);
                 memcpy(nodes + N, out, N);

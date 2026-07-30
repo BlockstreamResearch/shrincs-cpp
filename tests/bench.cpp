@@ -51,7 +51,7 @@ int main()
 
     vector<unsigned char> structure, signature, opt_rand;
     structure.push_back(0);
-    structure.push_back(160);
+    structure.push_back(255);
 
     unsigned char seed[48];
     generate_random_bytes(seed, 48);
@@ -79,6 +79,23 @@ int main()
     std::cout << std::endl;
 
     start = std::chrono::high_resolution_clock::now();
+    shrincs_sign(message, sk, 255, opt_rand, signature);
+    end = std::chrono::high_resolution_clock::now();
+    elapsed = end - start;
+    std::cout << "Stateful signing time: " << elapsed.count() << " ms" << std::endl;
+    std::cout << "Stateful (state = 255) signature size: " << signature.size() << " bytes" << std::endl;
+
+    // print_hex(signature.data(), signature.size());
+
+    start = std::chrono::high_resolution_clock::now();
+    is_valid = shrincs_verify(message, signature, sk.pk);
+    end = std::chrono::high_resolution_clock::now();
+    elapsed = end - start;
+    std::cout << "Stateful verification time: " << elapsed.count() << " ms" << std::endl;
+    if (!is_valid) std::cout << "Error!" << std::endl;
+    std::cout << std::endl;
+
+    start = std::chrono::high_resolution_clock::now();
     shrincs_sign(message, sk, 256, opt_rand, signature);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
@@ -93,6 +110,29 @@ int main()
     elapsed = end - start;
     std::cout << "Stateless verification time: " << elapsed.count() << " ms" << std::endl;
     if (!is_valid) std::cout << "Error!" << std::endl;
+    std::cout << std::endl;
+
+    structure[0] = 1;
+    structure[1] = 10;
+    shrincs_keygen(seed, structure, sk);
+
+    start = std::chrono::high_resolution_clock::now();
+    shrincs_sign(message, sk, 0, opt_rand, signature);
+    end = std::chrono::high_resolution_clock::now();
+    elapsed = end - start;
+    std::cout << "Stateful signing time: " << elapsed.count() << " ms" << std::endl;
+    std::cout << "Stateful (state = 0, xmss) signature size: " << signature.size() << " bytes" << std::endl;
+
+    // print_hex(signature.data(), signature.size());
+
+    start = std::chrono::high_resolution_clock::now();
+    is_valid = shrincs_verify(message, signature, sk.pk);
+    end = std::chrono::high_resolution_clock::now();
+    elapsed = end - start;
+    std::cout << "Stateful verification time: " << elapsed.count() << " ms" << std::endl;
+    if (!is_valid) std::cout << "Error!" << std::endl;
+    std::cout << std::endl;
+
 
     return 0;
 }
