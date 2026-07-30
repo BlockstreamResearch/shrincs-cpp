@@ -12,10 +12,56 @@ using namespace Parameters;
 
 namespace HASH 
 {
+    const unsigned char zeros[64] = {}; 
+    const unsigned char const_0x36[64] = {
+        0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36,
+        0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36,
+        0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36,
+        0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36,
+        0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36,
+        0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36,
+        0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36,
+        0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36, 0x36,
+    };
+    const unsigned char const_0x5c[64] = {
+        0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c,
+        0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c,
+        0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c,
+        0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c,
+        0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c,
+        0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c,
+        0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c,
+        0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c, 0x5c,
+    };
+    const unsigned char const_0xff[48] = {
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    };
+    
+    void xor_array(const unsigned char* data1, const unsigned char* data2, unsigned char* out, uint32_t size);
+
     void sha256_add_to_ctx(CSHA256& base_ctx, const unsigned char* data, size_t len);
     void sha256_finalize(CSHA256& base_ctx, unsigned char* out);
     void sha256_finalize_32(CSHA256& base_ctx, unsigned char* out);
-    void prf_msg(const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* opt_rand, const unsigned char* message, uint32_t message_len, bool is_ctr, uint32_t ctr, uint32_t mask_len, unsigned char* out);
+
+    void t_sl(CSHA256& base_ctx, unsigned char* adrs, const unsigned char* m_l, unsigned char* out);
+    void t_sf(CSHA256& base_ctx, unsigned char* adrs, const unsigned char* m_l, unsigned char* out);
+    void t_k(CSHA256& base_ctx, unsigned char* adrs, const unsigned char* m_k, unsigned char* out);
+    void f(CSHA256& base_ctx, unsigned char* adrs, const unsigned char* m_1, unsigned char* out);
+    void h(CSHA256& base_ctx, unsigned char* adrs, const unsigned char* m_2, unsigned char* out);
+    void h_grind(CSHA256& base_ctx, unsigned char* adrs, const unsigned char* digest, uint32_t counter, unsigned char* out);
+
+    void hmac_sha256(const unsigned char* key, uint8_t key_len, const unsigned char* message, uint64_t m_len, unsigned char* out);
+    void prf(CSHA256& base_ctx, const unsigned char* sk_seed, unsigned char* adrs, unsigned char* out);
+    void prf_msg_sl(const unsigned char* sk_prf, const unsigned char* opt_rand, const unsigned char* message, uint32_t m_len, unsigned char* out);
+    void prf_msg_sf(const unsigned char* sk_prf, const unsigned char* pk_seed, unsigned char* adrs, const unsigned char* message, uint32_t m_len, unsigned char* out);
+
+    void h_msg_sl(const unsigned char* r, const unsigned char* pk_seed, const unsigned char* sl_root, const unsigned char* message, uint32_t m_len, unsigned char* out);
+    void h_msg_sf(const unsigned char* r, const unsigned char* pk_seed, const unsigned char* sf_root, unsigned char* adrs, const unsigned char* message, uint32_t m_len, unsigned char* out);
 }
 
 #endif

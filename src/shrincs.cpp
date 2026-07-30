@@ -1,418 +1,162 @@
 #include "shrincs.h"
 
 namespace SHRINCS {
-    PublicKey::PublicKey() : seed(N), root(N) {}
+    PublicKey::PublicKey() : seed(N), sl_root(N), sf_root(N) {}
 
-    SecretKey::SecretKey(): seed(N), prf(N), sf(N), sl(N), pk() {}
-
-    State::State() {}
+    SecretKey::SecretKey(): seed(N), prf(N), structure(2), pk() {}
 
     void generate_random_bytes(unsigned char* buffer, size_t length) {
         std::random_device rd;
-        for (int i = 0; i < length; ++i) {
+        for (size_t i = 0; i < length; ++i) {
             buffer[i] = static_cast<unsigned char>(rd() & 0xFF); 
         }
     }
 
-    void parse_idx(const unsigned char* xof, uint32_t* idx_tree, uint32_t* idx_leaf)
+    bool shrincs_keygen(unsigned char* bytes, const std::vector<unsigned char>& structure, SecretKey& out_sk)
     {
-        uint32_t idx = PORS_FP::extract_bits(xof, xof_offset_bits, HSL);
-
-        for (uint32_t layer = 0; layer < D; layer++)
-        {
-            idx_leaf[layer] = idx & ((1 << H_PRIME) - 1);
-            idx >>= H_PRIME;
-            idx_tree[layer] = idx;
-        }
-    }
-
-    void shrincs_key_gen(PublicKey& out_pk, SecretKey& out_sk, State& out_state) 
-    {
-        unsigned char* seed = new unsigned char[3*N];
-        generate_random_bytes(seed, 3*N);
-
-        shrincs_restore(seed, out_pk, out_sk, out_state);
-
-        delete[] seed;
-        out_state.valid = true;
-    }
-
-    void shrincs_restore(const unsigned char* seed, PublicKey& out_pk, SecretKey& out_sk, State& out_state)
-    {
-        unsigned char* sk_seed = new unsigned char[N];
-        unsigned char* sk_prf = new unsigned char[N];
-        unsigned char* pk_seed = new unsigned char[N];
-
-        memcpy(sk_seed, seed, N);
-        memcpy(sk_prf, seed + N, N);
-        memcpy(pk_seed, seed + 2*N, N);
-
-        unsigned char* adrs = new unsigned char[32]();
+        memcpy(out_sk.seed.data(), bytes, N);
+        memcpy(out_sk.prf.data(), bytes + N, N);
+        memcpy(out_sk.pk.seed.data(), bytes + (N << 1), N);
 
         CSHA256 hash_ctx;
-
-        sha256_add_to_ctx(hash_ctx, pk_seed, N);
-        // Add zeros
-        sha256_add_to_ctx(hash_ctx, adrs, 32);
-        sha256_add_to_ctx(hash_ctx, adrs, 16);
-
-        auto pk_sf = UXMSS::uxmss_root(sk_seed, hash_ctx, adrs);
-
-        setLayerAddress(adrs, D - 1);
-        setTreeAddress(adrs, 0, 0);
-        auto pk_sl = XMSS::xmss_root(sk_seed, hash_ctx, adrs, H_PRIME);
-
-        setLayerAddress(adrs, 0);
-        setTreeAddress(adrs, 0, 0);
-        setTypeAndClear(adrs, ROOT);
-        unsigned char* pk_root = new unsigned char[N];
-
-        CSHA256 ctx = hash_ctx;
-        sha256_add_to_ctx(ctx, adrs, 32);
-        sha256_add_to_ctx(ctx, pk_sf, N);
-        sha256_add_to_ctx(ctx, pk_sl, N);
-        sha256_finalize(ctx, pk_root);
-
-        memcpy(out_sk.seed.data(), sk_seed, N);
-        memcpy(out_sk.prf.data(), sk_prf, N);
-        memcpy(out_sk.sf.data(), pk_sf, N);
-        memcpy(out_sk.sl.data(), pk_sl, N);
-        memcpy(out_sk.pk.seed.data(), pk_seed, N);
-        memcpy(out_sk.pk.root.data(), pk_root, N);
+        sha256_add_to_ctx(hash_ctx, out_sk.pk.seed.data(), N);
+        sha256_add_to_ctx(hash_ctx, zeros, 64 - N);
         
-        memcpy(out_pk.seed.data(), pk_seed, N);
-        memcpy(out_pk.root.data(), pk_root, N);
+        unsigned char adrs[22] = {0};
+        setLayerAddress(adrs, SPHX_LAYER_COUNT - 1);
+        XMSS::xmss_node(out_sk.seed.data(), hash_ctx, adrs, 0, SPHX_XMSS_HEIGHT, out_sk.pk.sl_root.data());
+        if (!FXMSS::fxmss_node(out_sk.seed.data(), hash_ctx, adrs, structure.data(), 0, FXMSS_HEIGHT, out_sk.pk.sf_root.data())) return false;
+        out_sk.structure = structure;
 
-        out_state.q = 0;
-        out_state.valid = false;
-
-        delete[] sk_seed;
-        delete[] sk_prf;
-        delete[] pk_seed;
-        delete[] pk_root;
-        delete[] adrs;
-        delete[] pk_sl;
-        delete[] pk_sf;
+        return true;
     }
 
-    unsigned char* shrincs_sign_stateful(const std::vector<unsigned char> message, SecretKey& sk, State& state)
+    bool shrincs_sf_leaf_select(const std::vector<unsigned char>& structure, uint32_t state_ctr, uint64_t* out_lr, uint8_t* out_bt)
     {
-        if (!state.valid) {
-            throw std::runtime_error("Invalid state");
-        }
+        if (structure.size() != 2) return false;
 
-        uint32_t q = state.q + 1;
-        if (q > HSF + 1)
+        unsigned char tree_shape = structure[0], tree_depth = structure[1];
+        if (tree_shape == FXMSS_SHAPE_UNBALANCED)
         {
-            throw std::runtime_error("Invalid signature number");
-        }
-
-        unsigned char* adrs = new unsigned char[32]();
-
-        CSHA256 hash_ctx;
-
-        sha256_add_to_ctx(hash_ctx, sk.pk.seed.data(), N);
-        // Add zeros
-        sha256_add_to_ctx(hash_ctx, adrs, 32);
-        sha256_add_to_ctx(hash_ctx, adrs, 16);
-
-        auto uxmss_sig = UXMSS::uxmss_sign(message.data(), message.size(), sk.seed.data(), sk.prf.data(), sk.pk.seed.data(), sk.pk.root.data(), hash_ctx, adrs, q);
-        state.q = q;
-        state.valid = true;
-
-        if (q > HSF)
-        {
-            q -= 1;
-        }
-
-        unsigned char* sig = new unsigned char[N + WOTS_SIGN_LEN + q * N];
-        memcpy(sig, sk.sl.data(), N);
-        memcpy(sig + N, uxmss_sig, WOTS_SIGN_LEN + q * N);
-
-        delete[] uxmss_sig;
-        delete[] adrs;
-        return sig;
-    }
-
-    unsigned char* shrincs_sign_stateless(const std::vector<unsigned char> message, SecretKey& sk)
-    {
-        unsigned char* adrs = new unsigned char[32]();
-
-        CSHA256 hash_ctx;
-
-        sha256_add_to_ctx(hash_ctx, sk.pk.seed.data(), N);
-        // Add zeros
-        sha256_add_to_ctx(hash_ctx, adrs, 32);
-        sha256_add_to_ctx(hash_ctx, adrs, 16);
-
-        unsigned char* digest = new unsigned char[32];
-
-        unsigned char* pors_sig;
-        
-        try 
-        {
-            pors_sig = PORS_FP::pors_sign(message.data(), message.size(), sk.seed.data(), sk.prf.data(), sk.pk.seed.data(), sk.pk.root.data(), hash_ctx, adrs, digest);
-        }
-        catch (...)
-        {
-            delete[] adrs;
-            delete[] digest;
-            return NULL;
-        }
-
-        uint32_t indices[K];
-        unsigned char* xof_out = new unsigned char[xof_block_idx * 32];
-
-        PORS_FP::pors_msg_to_indices(digest, adrs, hash_ctx, indices, xof_out);
-
-        uint32_t* tree_idx = new uint32_t[D];
-        uint32_t* leaf_idx = new uint32_t[D];
-        parse_idx(xof_out, tree_idx, leaf_idx);
-
-        setLayerAddress(adrs, 0);
-        setTreeAddress(adrs, 0, tree_idx[0] * (1 << H_PRIME) + leaf_idx[0]);
-        auto pors_pk = PORS_FP::pors_pk_from_sig(pors_sig, indices, hash_ctx, adrs);
-
-        unsigned char* ht_sig = new unsigned char[XMSS_SIGN_LEN * D];
-        auto msg = pors_pk;
-
-        for (uint32_t layer = 0; layer < D; layer++)
-        {
-            setLayerAddress(adrs, layer);
-            setTreeAddress(adrs, 0, tree_idx[layer]);
-            auto xmss_sig = XMSS::xmss_sign(msg, sk.seed.data(), sk.prf.data(), sk.pk.seed.data(), sk.pk.root.data(), hash_ctx, adrs, H_PRIME, leaf_idx[layer]);
-            memcpy(ht_sig + XMSS_SIGN_LEN * layer, xmss_sig, XMSS_SIGN_LEN);
-
-            delete[] msg;
-            if (layer < D - 1)
+            if (state_ctr == tree_depth && tree_depth > 0)
             {
-                msg = XMSS::xmss_root(sk.seed.data(), hash_ctx, adrs, H_PRIME);
+                *out_lr = 0;
+                *out_bt = FXMSS_HEIGHT - tree_depth;
+                return true;
             }
-
-            delete[] xmss_sig;
-        }
-        
-        unsigned char* sig = new unsigned char[SL_SIZE];
-        memcpy(sig, sk.sf.data(), N);
-        memcpy(sig + N, pors_sig, PORS_SIGN_LEN);
-        memcpy(sig + N + PORS_SIGN_LEN, ht_sig, XMSS_SIGN_LEN * D);
-
-        delete[] digest;
-        delete[] tree_idx;
-        delete[] leaf_idx;
-        delete[] pors_sig;
-        delete[] ht_sig;
-        delete[] adrs;
-        delete[] xof_out;
-
-        return sig;
-    }
-
-    bool shrincs_verify_stateful(const std::vector<unsigned char> message, const unsigned char* sig, uint32_t sig_len, PublicKey& pk)
-    {
-        unsigned char* adrs = new unsigned char[32]();
-        unsigned char* sl = new unsigned char[N];
-        memcpy(sl, sig, N);
-
-        const unsigned char* uxmss_sig = sig + N;
-
-        uint32_t auth_len = sig_len - N - WOTS_SIGN_LEN;
-
-        if (auth_len % N != 0) 
-        {
-            return false;
-        }
-
-        uint32_t q_raw = auth_len / N;
-        if (q_raw < 1 || q_raw > HSF)
-        {
-            return false;
-        }
-
-        bool last_sf_level = !(q_raw < HSF);
-
-        CSHA256 hash_ctx;
-
-        sha256_add_to_ctx(hash_ctx, pk.seed.data(), N);
-        // Add zeros
-        sha256_add_to_ctx(hash_ctx, adrs, 32);
-        sha256_add_to_ctx(hash_ctx, adrs, 16);
-
-        for (int j = 0; j < (last_sf_level ? 2 : 1); j++)
-        {
-            try
+            if (state_ctr < tree_depth + 1u)
             {
-                auto sf = UXMSS::uxmss_pk_from_sig(uxmss_sig, uxmss_sig + WOTS_SIGN_LEN, message.data(), message.size(), pk.root.data(), hash_ctx, adrs, last_sf_level ? HSF + j : q_raw);
-
-                unsigned char* root = new unsigned char[N];
-                setTypeAndClear(adrs, ROOT);
-
-                CSHA256 ctx = hash_ctx;
-                sha256_add_to_ctx(ctx, adrs, 32);
-                sha256_add_to_ctx(ctx, sf, N);
-                sha256_add_to_ctx(ctx, sl, N);
-                sha256_finalize(ctx, root);
-
-                bool is_valid = memcmp(root, pk.root.data(), N) == 0;
-
-                delete[] sf;
-                delete[] root;
-
-                if (is_valid)
-                {
-                    delete[] adrs;
-                    delete[] sl;
-                    return true;
-                }
+                *out_lr = 1;
+                *out_bt = FXMSS_HEIGHT - 1 - state_ctr;
+                return true;
             }
-            catch(const std::exception& e)
+        }
+        else if (tree_shape == FXMSS_SHAPE_BALANCED)
+        {
+            if (tree_depth > 0 && (tree_depth >= 32 || state_ctr < (UINT32_C(1) << tree_depth)))
             {
-                continue;
+                *out_lr = state_ctr;
+                *out_bt = FXMSS_HEIGHT - tree_depth;
+                return true;
             }
         }
 
-        delete[] adrs;
-        delete[] sl;
         return false;
     }
 
-    bool shrincs_verify_stateless(const std::vector<unsigned char> message, const unsigned char* sig, PublicKey& pk)
+    bool shrincs_sign(const std::vector<unsigned char>& message, const SecretKey& sk, uint32_t state_ctr, const std::vector<unsigned char>& opt_rand, std::vector<unsigned char>& out)
     {
-        unsigned char* adrs = new unsigned char[32]();
-        unsigned char* sf = new unsigned char[N];
+        uint64_t leaf_index;
+        uint8_t leaf_height;
+        if (!shrincs_sf_leaf_select(sk.structure, state_ctr, &leaf_index, &leaf_height))
+        {
+            std::vector<unsigned char> bound_message;
+            bound_message.reserve(N + message.size());
+            bound_message.insert(bound_message.end(), sk.pk.sf_root.begin(), sk.pk.sf_root.end());
+            bound_message.insert(bound_message.end(), message.begin(), message.end());
 
-        memcpy(sf, sig, N);
-        uint32_t offset = N;
+            out.assign(SPHX_SIGNATURE_SIZE, 0);
 
-        const unsigned char* pors_sig = sig + offset;
-        offset += PORS_SIGN_LEN;
+            return SLH_DSA::slh_dsa_sign(bound_message.data(), bound_message.size(), NULL, 0, sk.seed.data(), sk.prf.data(), sk.pk.seed.data(), sk.pk.sl_root.data(), opt_rand.empty() ? NULL : opt_rand.data(), out.data());
+        }
 
-        const unsigned char* r = pors_sig;
+        std::vector<unsigned char> bound_message;
+        bound_message.reserve(N + message.size());
+        bound_message.insert(bound_message.end(), sk.pk.sl_root.begin(), sk.pk.sl_root.end());
+        bound_message.insert(bound_message.end(), message.begin(), message.end());
+
+        unsigned char adrs[22] = {0};
+        setLayerAddress(adrs, leaf_height);
+        setTreeAddress(adrs, leaf_index);
+
+        unsigned char r[N], digest[N << 1];
+        prf_msg_sf(sk.prf.data(), sk.pk.seed.data(), adrs, bound_message.data(), bound_message.size(), r);
+        h_msg_sf(r, sk.pk.seed.data(), sk.pk.sf_root.data(), adrs, bound_message.data(), bound_message.size(), digest);
 
         CSHA256 hash_ctx;
+        sha256_add_to_ctx(hash_ctx, sk.pk.seed.data(), N);
+        sha256_add_to_ctx(hash_ctx, zeros, 64 - N);
 
-        sha256_add_to_ctx(hash_ctx, pk.seed.data(), N);
-        // Add zeros
-        sha256_add_to_ctx(hash_ctx, adrs, 32);
-        sha256_add_to_ctx(hash_ctx, adrs, 16);
+        uint32_t leaf_depth = FXMSS_HEIGHT - leaf_height;
+        out.assign(N + 8 + 2 + WOTS_C_CHAINS_SIZE + N * leaf_depth, 0);
 
-        CSHA256 ctx = hash_ctx;
+        memcpy(out.data(), r, N);
 
-        setTypeAndClear(adrs, SL_H_MSG);
-        sha256_add_to_ctx(ctx, adrs, 32);
-        sha256_add_to_ctx(ctx, r, R_LEN);
-        sha256_add_to_ctx(ctx, pk.root.data(), N);
-        sha256_add_to_ctx(ctx, message.data(), message.size());
+        uint64_t leaf_index_be = htonll(leaf_index);
+        memcpy(out.data() + N, &leaf_index_be, 8);
 
-        unsigned char* digest = new unsigned char[32];
-        sha256_finalize_32(ctx, digest);
+        return FXMSS::fxmss_sign(digest, sk.seed.data(), hash_ctx, leaf_index, leaf_height, sk.structure.data(), out.data() + N + 8);
+    }
 
-        uint32_t indices[K];
-        unsigned char* xof_out = new unsigned char[xof_block_idx * 32];
-
-        PORS_FP::pors_msg_to_indices(digest, adrs, hash_ctx, indices, xof_out);
-
-        auto A = new std::tuple<uint32_t, uint32_t>[M_MAX];
-        uint32_t A_len;
-        if (!PORS_FP::pors_octopus(indices, A, A_len))
+    bool shrincs_verify(const std::vector<unsigned char>& message, const std::vector<unsigned char>& signature, const PublicKey& pk)
+    {
+        if (signature.size() == SPHX_SIGNATURE_SIZE)
         {
-            delete[] A;
+            std::vector<unsigned char> bound_message;
+            bound_message.reserve(N + message.size());
+            bound_message.insert(bound_message.end(), pk.sf_root.begin(), pk.sf_root.end());
+            bound_message.insert(bound_message.end(), message.begin(), message.end());
+
+            return SLH_DSA::slh_dsa_verify(bound_message.data(), bound_message.size(), signature.data(), NULL, 0, pk.seed.data(), pk.sl_root.data());
+        }
+
+        if (signature.size() < N + 8) return false;
+
+        uint32_t fxmss_sig_len = signature.size() - N - 8;
+        if (fxmss_sig_len < FXMSS_SIGNATURE_SIZE_MIN || fxmss_sig_len > FXMSS_SIGNATURE_SIZE_MAX) return false;
+
+        if ((fxmss_sig_len - 2) % N != 0) return false;
+
+        uint32_t leaf_depth = ((fxmss_sig_len - 2) >> 4) - WOTS_C_CHAIN_COUNT;
+        uint32_t leaf_height = FXMSS_HEIGHT - leaf_depth;
+
+        uint64_t leaf_index_be;
+        memcpy(&leaf_index_be, signature.data() + N, 8);
+        uint64_t leaf_index = ntohll(leaf_index_be);
+
+        if (leaf_depth < 64 && leaf_index >= (UINT64_C(1) << leaf_depth)) return false;
+
+        unsigned char adrs[22] = {0};
+        setLayerAddress(adrs, leaf_height);
+        setTreeAddress(adrs, leaf_index);
+
+        std::vector<unsigned char> bound_message;
+        bound_message.reserve(N + message.size());
+        bound_message.insert(bound_message.end(), pk.sl_root.begin(), pk.sl_root.end());
+        bound_message.insert(bound_message.end(), message.begin(), message.end());
+
+        unsigned char digest[N << 1], root[N];
+        h_msg_sf(signature.data(), pk.seed.data(), pk.sf_root.data(), adrs, bound_message.data(), bound_message.size(), digest);
+
+        CSHA256 hash_ctx;
+        sha256_add_to_ctx(hash_ctx, pk.seed.data(), N);
+        sha256_add_to_ctx(hash_ctx, zeros, 64 - N);
+
+        if (!FXMSS::fxmss_pk_from_sig(signature.data() + N + 8, fxmss_sig_len, digest, hash_ctx, leaf_index, root))
+        {
             return false;
         }
 
-        uint32_t offset_back = PORS_SIGN_LEN - N;
-        for (uint32_t i = A_len; i < M_MAX; i++)
-        {
-            bool is_all_zeros = std::all_of(pors_sig + offset_back, pors_sig + offset_back + N, [](unsigned char c) { return c == 0; });
-            offset_back -= N;
-
-            if (!is_all_zeros)
-            {
-                delete[] adrs;
-                delete[] sf;
-                delete[] digest;
-                delete[] A;
-                delete[] xof_out;
-                return false;
-            }
-        }
-
-        uint32_t* tree_idx = new uint32_t[D];
-        uint32_t* leaf_idx = new uint32_t[D];
-        parse_idx(xof_out, tree_idx, leaf_idx);
-
-        setLayerAddress(adrs, 0);
-        setTreeAddress(adrs, 0, tree_idx[0] * (1 << H_PRIME) + leaf_idx[0]);
-
-        unsigned char* pors_pk = PORS_FP::pors_pk_from_sig(pors_sig, indices, hash_ctx, adrs);
-
-        auto msg = pors_pk;
-
-        for (uint32_t layer = 0; layer < D; layer++)
-        {
-            auto xmss_sig = sig + offset;
-            offset += XMSS_SIGN_LEN;
-            auto wots_sig = xmss_sig;
-            auto auth = xmss_sig + WOTS_SIGN_LEN;
-            setLayerAddress(adrs, layer);
-            setTreeAddress(adrs, 0, tree_idx[layer]);
-            try 
-            {
-                unsigned char* new_msg = XMSS::xmss_pk_from_sig(wots_sig, auth, msg, pk.root.data(), hash_ctx, adrs, H_PRIME, leaf_idx[layer]);
-                delete[] msg;
-                msg = new_msg;
-            }
-            catch(const std::exception& e)
-            {
-                delete[] adrs;
-                delete[] sf;
-                delete[] digest;
-                delete[] tree_idx;
-                delete[] leaf_idx;
-                delete[] A;
-                delete[] xof_out;
-
-                return false;
-            }
-        }
-        
-        auto sl = msg;
-
-        setLayerAddress(adrs, 0);
-        setTreeAddress(adrs, 0, 0);
-        unsigned char* root = new unsigned char[N];
-        setTypeAndClear(adrs, ROOT);
-
-        ctx = hash_ctx;
-        sha256_add_to_ctx(ctx, adrs, 32);
-        sha256_add_to_ctx(ctx, sf, N);
-        sha256_add_to_ctx(ctx, sl, N);
-        sha256_finalize(ctx, root);
-
-        bool is_valid = memcmp(root, pk.root.data(), N) == 0;
-
-        delete[] adrs;
-        delete[] sf;
-        delete[] digest;
-        delete[] sl;
-        delete[] tree_idx;
-        delete[] leaf_idx;
-        delete[] root;
-        delete[] A;
-        delete[] xof_out;
-
-        return is_valid;
-    }
-
-    bool shrincs_verify(const std::vector<unsigned char> message, const unsigned char* sig, uint32_t sig_len, PublicKey& pk)
-    {
-        if (sig_len <= MAX_SF_SIZE)
-        {
-            return shrincs_verify_stateful(message, sig, sig_len, pk);
-        }
-        else
-        {
-            return shrincs_verify_stateless(message, sig, pk);
-        }
+        return memcmp(root, pk.sf_root.data(), N) == 0;
     }
 }

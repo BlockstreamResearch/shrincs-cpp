@@ -3,16 +3,18 @@
 
 #include <random>
 #include <vector>
-#include "uxmss.h"
 #include "xmss.h"
-#include "pors_fp.h"
+#include "fxmss.h"
+#include "fors.h"
+#include "slh_dsa.h"
 
 namespace SHRINCS {
     class PublicKey
     {
         public:
             std::vector<unsigned char> seed;
-            std::vector<unsigned char> root;
+            std::vector<unsigned char> sl_root;
+            std::vector<unsigned char> sf_root;
 
             PublicKey();
     };
@@ -22,32 +24,18 @@ namespace SHRINCS {
         public:
             std::vector<unsigned char> seed;
             std::vector<unsigned char> prf;
-            std::vector<unsigned char> sf;
-            std::vector<unsigned char> sl;
+            std::vector<unsigned char> structure;
             PublicKey pk;
 
             SecretKey();
     };
 
-    class State
-    {
-        public:
-            uint32_t q;
-            bool valid;
-
-            State();
-    };
-
     void generate_random_bytes(unsigned char* buffer, size_t length);
-    void parse_idx(const unsigned char* xof, uint32_t* idx_tree, uint32_t* idx_leaf);
 
-    void shrincs_key_gen(PublicKey& out_pk, SecretKey& out_sk, State& out_state);
-    void shrincs_restore(const unsigned char* seed, PublicKey& out_pk, SecretKey& out_sk, State& out_state);
-    unsigned char* shrincs_sign_stateful(const std::vector<unsigned char> message, SecretKey& sk, State& state);
-    unsigned char* shrincs_sign_stateless(const std::vector<unsigned char> message, SecretKey& sk);
-    bool shrincs_verify_stateful(const std::vector<unsigned char> message, const unsigned char* sig, uint32_t sig_len, PublicKey& pk);
-    bool shrincs_verify_stateless(const std::vector<unsigned char> message, const unsigned char* sig, PublicKey& pk);
-    bool shrincs_verify(const std::vector<unsigned char> message, const unsigned char* sig, uint32_t sig_len, PublicKey& pk);
+    bool shrincs_keygen(unsigned char* bytes, const std::vector<unsigned char>& structure, SecretKey& out_sk);
+    bool shrincs_sf_leaf_select(const std::vector<unsigned char>& structure, uint32_t state_ctr, uint64_t* out_lr, uint8_t* out_bt);
+    bool shrincs_sign(const std::vector<unsigned char>& message, const SecretKey& sk, uint32_t state_ctr, const std::vector<unsigned char>& opt_rand, std::vector<unsigned char>& out);
+    bool shrincs_verify(const std::vector<unsigned char>& message, const std::vector<unsigned char>& signature, const PublicKey& pk);
 }
 
 #endif

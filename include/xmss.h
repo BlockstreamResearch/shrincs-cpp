@@ -1,17 +1,16 @@
 #ifndef XMSS_H
 #define XMSS_H
 
-#include "wots_c.h"
+#include "wots.h"
 
-using namespace WOTS_C;
+using namespace WOTS;
 
 namespace XMSS 
 {
-    unsigned char* xmss_treehash(const unsigned char* sk_seed, CSHA256& hash_ctx, unsigned char* adrs, uint32_t target_height, uint32_t start_idx);
-    unsigned char* xmss_root(const unsigned char* sk_seed, CSHA256& hash_ctx, unsigned char* adrs, uint32_t h_prime);
-    unsigned char* xmss_auth_path(const unsigned char* sk_seed, CSHA256& hash_ctx, unsigned char* adrs, uint32_t h_prime, uint32_t idx);
-    unsigned char* xmss_pk_from_sig(const unsigned char* wots_sig, const unsigned char* auth, const unsigned char* message, const unsigned char* pk_root, CSHA256& hash_ctx, unsigned char* adrs, uint32_t h_prime, uint32_t idx);
-    unsigned char* xmss_sign(const unsigned char* message, const unsigned char* sk_seed, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* pk_root, CSHA256& hash_ctx, unsigned char* adrs, uint32_t h_prime, uint32_t idx);
+    void xmss_node(const unsigned char* sk_seed, CSHA256& hash_ctx, unsigned char* adrs, uint32_t node_idx, uint32_t node_height, unsigned char* out);
+    void xmss_sign(const unsigned char* message, const unsigned char* sk_seed, CSHA256& hash_ctx, unsigned char* adrs, uint32_t keypair_index, unsigned char* out);
+    void xmss_pk_from_sig(const unsigned char* sig, const unsigned char* message, CSHA256& hash_ctx, unsigned char* adrs, uint32_t keypair_index, unsigned char* out);
+
 }
 
 #endif

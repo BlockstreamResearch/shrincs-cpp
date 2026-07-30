@@ -47,65 +47,51 @@ void hexStringToBytes(const std::string& hex, unsigned char* buffer) {
 
 int main() 
 {
-    PublicKey pk = PublicKey();
     SecretKey sk = SecretKey();
-    State state = State();
 
-    shrincs_key_gen(pk, sk, state);
-    // pk.seed = hex_to_bytes("918fd17d889f34eb76a99a0c93a2015e");
-    // pk.root = hex_to_bytes("da5a08dc47d1e05d0d4d816f72e78e27");
+    vector<unsigned char> structure, signature, opt_rand;
+    structure.push_back(0);
+    structure.push_back(160);
 
-    // memcpy(sk.pk.seed.data(), pk.seed.data(), N);
-    // memcpy(sk.pk.root.data(), pk.root.data(), N);
-    // sk.sf = hex_to_bytes("00ae2c282f33b319d83b705b4b5487c6");
-    // sk.sl = hex_to_bytes("18311f77a5283cf39aabaf35dc3dfd79");
-    // sk.prf = hex_to_bytes("1a79e406404e29a7feed94aa546330ac");
-    // sk.seed = hex_to_bytes("0517400a7d4f5a532d4f34b077182caf");
-
-    // state.q = 0;
-    // state.valid = true;
-
-    // print_hex(pk.seed.data(), N);
-    // print_hex(pk.root.data(), N);
-    // print_hex(sk.sf.data(), N);
-    // print_hex(sk.sl.data(), N);
-    // print_hex(sk.prf.data(), N);
-    // print_hex(sk.seed.data(), N);
+    unsigned char seed[48];
+    generate_random_bytes(seed, 48);
+    shrincs_keygen(seed, structure, sk);
 
     std::vector<unsigned char> message = std::vector<unsigned char>(32, 0);
 
     // hexStringToBytes("8a276ceb95d10ed7705c9e25c9987cb4b1eaf73bcae7f922058c4e46e906a778", message.data());
 
     auto start = std::chrono::high_resolution_clock::now();
-    auto signature = shrincs_sign_stateful(message, sk, state);
+    shrincs_sign(message, sk, 0, opt_rand, signature);
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> elapsed = end - start;
     std::cout << "Stateful signing time: " << elapsed.count() << " ms" << std::endl;
+    std::cout << "Stateful (state = 0) signature size: " << signature.size() << " bytes" << std::endl;
 
-    // print_hex(signature, N + WOTS_SIGN_LEN + state.q * N);
+    // print_hex(signature.data(), signature.size());
 
     start = std::chrono::high_resolution_clock::now();
-    bool is_valid = shrincs_verify(message, signature, WOTS_SIGN_LEN + state.q * N + N, pk);
+    bool is_valid = shrincs_verify(message, signature, sk.pk);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     std::cout << "Stateful verification time: " << elapsed.count() << " ms" << std::endl;
     if (!is_valid) std::cout << "Error!" << std::endl;
-    delete[] signature;
+    std::cout << std::endl;
 
     start = std::chrono::high_resolution_clock::now();
-    signature = shrincs_sign_stateless(message, sk);
+    shrincs_sign(message, sk, 256, opt_rand, signature);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     std::cout << "Stateless signing time: " << elapsed.count() << " ms" << std::endl;
+    std::cout << "Stateless signature size: " << signature.size() << " bytes" << std::endl;
 
-    // print_hex(signature, SL_SIZE);
+    // print_hex(signature.data(), signature.size());
 
     start = std::chrono::high_resolution_clock::now();
-    is_valid = shrincs_verify(message, signature, SL_SIZE, pk);
+    is_valid = shrincs_verify(message, signature, sk.pk);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     std::cout << "Stateless verification time: " << elapsed.count() << " ms" << std::endl;
-    delete[] signature;
     if (!is_valid) std::cout << "Error!" << std::endl;
 
     return 0;

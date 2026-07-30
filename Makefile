@@ -9,11 +9,11 @@ ifeq ($(UNAME_M),arm64)
     SHA2_FLAG    := -march=armv8-a+sha2
 else ifeq ($(UNAME_M),x86_64)
     BTC_FILES    := $(wildcard btc_sha/*.cpp)
-    HW_FLAGS     := -march=native -msse4.1 -mavx2 -msha -DENABLE_SSE41 -DENABLE_AVX2 -DENABLE_SHANI
+    HW_FLAGS     := -march=native -msse4.1 -mavx2 -msha -DENABLE_SSE41 -DENABLE_AVX2 -DENABLE_X86_SHANI
     SHA2_FLAG    :=
 else
     BTC_FILES    := $(wildcard btc_sha/*.cpp)
-    HW_FLAGS     := -O3
+    HW_FLAGS     :=
     SHA2_FLAG    :=
 endif
 
@@ -25,8 +25,10 @@ OBJ_DIR   = obj
 OBJS     = $(SRC_FILES:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 BTC_OBJS = $(BTC_FILES:btc_sha/%.cpp=$(OBJ_DIR)/%.o)
 
-CXXFLAGS := -O3 -Wall $(HW_FLAGS) -fPIC -std=c++17 -I$(INC_DIR) -I. -Ibtc_sha -DSHRINCS_B32
 INCLUDES := -I$(INC_DIR) -I. -Ibtc_sha
+CXXFLAGS := -O3 -Wall $(HW_FLAGS) -fPIC -std=c++17 $(INCLUDES)
+
+.PHONY: build test benchmark clean
 
 build: $(OBJS) $(BTC_OBJS)
 	ar rcs $(LIB_NAME) $(OBJS) $(BTC_OBJS)
@@ -37,7 +39,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 
 $(OBJ_DIR)/sha256_arm_shani.o: btc_sha/sha256_arm_shani.cpp
 	@mkdir -p $(OBJ_DIR)
-	$(CXX) -O3 -Wall $(SHA2_FLAG) -fPIC -std=c++17 $(INCLUDES) -DSHRINCS_B32 -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(SHA2_FLAG) -c $< -o $@
 
 $(OBJ_DIR)/%.o: btc_sha/%.cpp
 	@mkdir -p $(OBJ_DIR)
@@ -48,22 +50,29 @@ clean:
 
 BTC_OTHER_FILES := $(filter-out btc_sha/sha256_arm_shani.cpp, $(BTC_FILES))
 
-TEST_FLAGS := -lgtest -lpthread -fsanitize=address -fno-omit-frame-pointer
+BREW_PREFIX := $(shell brew --prefix 2>/dev/null)
+ifneq ($(BREW_PREFIX),)
+    GTEST_INCLUDES := -I$(BREW_PREFIX)/include
+    GTEST_LIBS     := -L$(BREW_PREFIX)/lib
+endif
 
-test: clean
+TEST_FLAGS := $(GTEST_LIBS) -lgtest -lpthread -fsanitize=address -fno-omit-frame-pointer
+TEST_CXXFLAGS := -O2 -g -Wall $(HW_FLAGS) -std=c++17 $(INCLUDES) $(GTEST_INCLUDES) -fsanitize=address -fno-omit-frame-pointer
+
+test:
 	@mkdir -p bin obj
-	$(CXX) -O3 -Wall $(SHA2_FLAG) -fPIC -std=c++17 $(INCLUDES) -DSHRINCS_B32 \
-		-c btc_sha/sha256_arm_shani.cpp -o obj/sha256_arm_shani.o
-	$(CXX) -g -Wall $(HW_FLAGS) -std=c++17 -Wno-deprecated-declarations -DSHRINCS_B32 \
-		$(SRC_FILES) $(BTC_OTHER_FILES) tests/tests.cpp obj/sha256_arm_shani.o \
-		$(INCLUDES) -o bin/run_tests $(TEST_FLAGS)
+	$(CXX) $(TEST_CXXFLAGS) $(SHA2_FLAG) \
+		-c btc_sha/sha256_arm_shani.cpp -o obj/sha256_arm_shani_test.o
+	$(CXX) $(TEST_CXXFLAGS) \
+		$(SRC_FILES) $(BTC_OTHER_FILES) tests/tests.cpp obj/sha256_arm_shani_test.o \
+		-o bin/run_tests $(TEST_FLAGS)
 	./bin/run_tests
 
-benchmark: clean
+benchmark:
 	@mkdir -p bin obj
-	$(CXX) -O3 -Wall $(SHA2_FLAG) -fPIC -std=c++17 $(INCLUDES) -DSHRINCS_B32 \
+	$(CXX) $(CXXFLAGS) $(SHA2_FLAG) \
 		-c btc_sha/sha256_arm_shani.cpp -o obj/sha256_arm_shani.o
-	$(CXX) -O3 -Wall $(HW_FLAGS) -std=c++17 -Wno-deprecated-declarations -DSHRINCS_B32 \
+	$(CXX) $(CXXFLAGS) \
 		$(SRC_FILES) $(BTC_OTHER_FILES) tests/bench.cpp obj/sha256_arm_shani.o \
-		$(INCLUDES) -o bin/bench
+		-o bin/bench
 	./bin/bench

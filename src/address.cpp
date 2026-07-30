@@ -2,55 +2,43 @@
 
 namespace Address 
 {
-    void setLayerAddress(unsigned char* adrs, uint32_t layer) 
+    void setLayerAddress(unsigned char* adrs, uint8_t layer) 
     {
-        layer = htonl(layer);
         memcpy(adrs, &layer, sizeof(layer));
     }
 
-    void setTreeAddress(unsigned char* adrs, uint32_t tree_addr1, uint64_t tree_addr2) 
+    void setTreeAddress(unsigned char* adrs, uint64_t tree_addr) 
     {
-        tree_addr1 = htonl(tree_addr1);
-        tree_addr2 = htobe64(tree_addr2);
-
-        memcpy(adrs + 4, &tree_addr1, sizeof(tree_addr1));
-        memcpy(adrs + 8, &tree_addr2, sizeof(tree_addr2));
+        tree_addr = htonll(tree_addr);
+        memcpy(adrs + 1, & tree_addr, sizeof(tree_addr));
     }
 
-    void setTypeAndClear(unsigned char* adrs, uint32_t type) 
+    void setType(unsigned char* adrs, uint8_t type)
     {
-        type = htonl(type);
-        memcpy(adrs + 16, &type, sizeof(type));
-        memset(adrs + 20, 0, 12);
+        memcpy(adrs + 9, &type, sizeof(type));
     }
 
-    void setKeyPairAddress(unsigned char* adrs, uint32_t keypair) 
+    void set_10_14(unsigned char* adrs, uint32_t value) 
     {
-        keypair = htonl(keypair);
-        memcpy(adrs + 20, &keypair, sizeof(keypair));
+        value = htonl(value);
+        memcpy(adrs + 10, &value, sizeof(value));
     }
 
-    void setChainAddress(unsigned char* adrs, uint32_t chain) 
+    void set_14_18(unsigned char* adrs, uint32_t value) 
     {
-        chain = htonl(chain);
-        memcpy(adrs + 24, &chain, sizeof(chain));
+        value = htonl(value);
+        memcpy(adrs + 14, &value, sizeof(value));
     }
 
-    void setHashAddress(unsigned char* adrs, uint32_t hash) 
+    void set_14_22(unsigned char* adrs, uint64_t value)
     {
-        hash = htonl(hash);
-        memcpy(adrs + 28, &hash, sizeof(hash));
+        value = htonll(value);
+        memcpy(adrs + 14, &value, sizeof(value));
     }
 
-    void setTreeHeight(unsigned char* adrs, uint32_t height) 
+    void set_18_22(unsigned char* adrs, uint32_t value) 
     {
-        height = htonl(height);
-        memcpy(adrs + 24, &height, sizeof(height));
-    }
-
-    void setTreeIndex(unsigned char* adrs, uint32_t index) 
-    {
-        index = htonl(index);
-        memcpy(adrs + 28, &index, sizeof(index));
+        value = htonl(value);
+        memcpy(adrs + 18, &value, sizeof(value));
     }
 }
