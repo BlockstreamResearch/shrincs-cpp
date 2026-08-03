@@ -3,11 +3,6 @@
 
 #include <cstdint>
 
-
-#if !defined(SHRINCS_B) && !defined(SHRINCS_L) && !defined(SHRINCS_B32)
-    #define SHRINCS_B32
-#endif
-
 namespace Parameters
 {
     inline constexpr uint32_t WOTS_C_CHAIN_BITS = 4;
@@ -44,25 +39,25 @@ namespace Parameters
 
 namespace AddressTypes
 {
-    inline constexpr uint32_t SL_WOTS_TW_HASH  = 0x00;
-    inline constexpr uint32_t SL_WOTS_TW_PK  = 0x01;
-    inline constexpr uint32_t SL_XMSS_TREE  = 0x02;
-    inline constexpr uint32_t SL_FORS_TREE  = 0x03;
-    inline constexpr uint32_t SL_FORS_ROOTS  = 0x04;
-    inline constexpr uint32_t SL_WOTS_TW_PRF  = 0x05;
-    inline constexpr uint32_t SL_FORS_PRF  = 0x06;
-    inline constexpr uint32_t SF_WOTS_C_HASH  = 0x10;
-    inline constexpr uint32_t SF_WOTS_C_PK  = 0x11;
-    inline constexpr uint32_t SF_FXMSS_TREE  = 0x12;
-    inline constexpr uint32_t SF_WOTS_C_PRF  = 0x15;
-    inline constexpr uint32_t SF_WOTS_C_GRIND  = 0x16;
+    inline constexpr uint32_t SL_WOTS_TW_HASH   = 0x00;
+    inline constexpr uint32_t SL_WOTS_TW_PK     = 0x01;
+    inline constexpr uint32_t SL_XMSS_TREE      = 0x02;
+    inline constexpr uint32_t SL_FORS_TREE      = 0x03;
+    inline constexpr uint32_t SL_FORS_ROOTS     = 0x04;
+    inline constexpr uint32_t SL_WOTS_TW_PRF    = 0x05;
+    inline constexpr uint32_t SL_FORS_PRF       = 0x06;
+    inline constexpr uint32_t SF_WOTS_C_HASH    = 0x10;
+    inline constexpr uint32_t SF_WOTS_C_PK      = 0x11;
+    inline constexpr uint32_t SF_FXMSS_TREE     = 0x12;
+    inline constexpr uint32_t SF_WOTS_C_PRF     = 0x15;
+    inline constexpr uint32_t SF_WOTS_C_GRIND   = 0x16;
 
 }
 
 namespace FXMSSShape
 {
     inline constexpr uint8_t FXMSS_SHAPE_UNBALANCED  = 0x00;
-    inline constexpr uint8_t FXMSS_SHAPE_BALANCED  = 0x01;
+    inline constexpr uint8_t FXMSS_SHAPE_BALANCED    = 0x01;
 }
 
 #endif // CONSTANTS_H

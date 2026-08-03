@@ -25,11 +25,7 @@ namespace HASH
 
     void sha256_finalize_32(CSHA256& base_ctx, unsigned char* out)
     {
-        unsigned char full_hash[32];
-
-        base_ctx.Finalize(full_hash);
-
-        memcpy(out, full_hash, 32);
+        base_ctx.Finalize(out);
     }
 
     void t_sl(CSHA256& base_ctx, unsigned char* adrs, const unsigned char* m_l, unsigned char* out)

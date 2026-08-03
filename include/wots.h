@@ -1,12 +1,6 @@
 #ifndef WOTS_H
 #define WOTS_H
 
-#include <array>
-#include <vector>
-#include <cmath>
-#include <stdexcept>
-#include <atomic>
-#include <thread>
 #include "address.h"
 #include "constants.h"
 #include "hash.h"

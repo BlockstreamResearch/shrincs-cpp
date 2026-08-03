@@ -47,6 +47,8 @@ void hexStringToBytes(const std::string& hex, unsigned char* buffer) {
 
 int main() 
 {
+    SHA256AutoDetect();
+    
     SecretKey sk = SecretKey();
 
     vector<unsigned char> structure, signature, opt_rand, cache;

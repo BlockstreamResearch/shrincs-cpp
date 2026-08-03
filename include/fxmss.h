@@ -2,7 +2,6 @@
 #define FXMSS_H
 
 #include "wots.h"
-#include <algorithm>
 
 using namespace WOTS;
 using namespace FXMSSShape;

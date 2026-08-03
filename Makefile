@@ -5,7 +5,7 @@ SRC_FILES := $(wildcard src/*.cpp)
 
 ifeq ($(UNAME_M),arm64)
     BTC_FILES    := btc_sha/sha256.cpp btc_sha/sha256_arm_shani.cpp
-    HW_FLAGS     := -march=native -DENABLE_ARM_SHANI
+    HW_FLAGS     := -march=native -DENABLE_ARM_SHANI -DMAC_OSX
     SHA2_FLAG    := -march=armv8-a+sha2
 else ifeq ($(UNAME_M),x86_64)
     BTC_FILES    := $(wildcard btc_sha/*.cpp)
