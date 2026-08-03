@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <cstring>
-#include <arpa/inet.h>
+#include "btc_sha/endian.h"
 
 namespace Address 
 {

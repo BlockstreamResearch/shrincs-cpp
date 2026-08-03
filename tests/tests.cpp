@@ -681,6 +681,109 @@ TEST(SHRINCSTest, StructuresProduceDistinctStatefulRoots) {
     EXPECT_NE(balanced_key().pk.sl_root, unbalanced_key().pk.sl_root);
 }
 
+namespace {
+
+// A cached signature must be indistinguishable from a recomputed one.
+void expect_cache_matches_plain(const std::vector<unsigned char>& structure, unsigned char salt, uint32_t last_ctr)
+{
+    std::vector<unsigned char> seed = test_seed(salt);
+    std::vector<unsigned char> message(32, 0x5e);
+
+    SecretKey plain, cached;
+    std::vector<unsigned char> cache;
+    ASSERT_TRUE(shrincs_keygen(seed.data(), structure, plain));
+    ASSERT_TRUE(shrincs_keygen(seed.data(), structure, cached, &cache));
+
+    EXPECT_EQ(plain.pk.sf_root, cached.pk.sf_root);
+    EXPECT_EQ(cache.size(), FXMSS::fxmss_cache_size(structure.data()));
+    EXPECT_GT(cache.size(), 0u);
+
+    for (uint32_t ctr = 0; ctr <= last_ctr; ctr++)
+    {
+        std::vector<unsigned char> a, b;
+        ASSERT_TRUE(shrincs_sign(message, plain, ctr, {}, a)) << "ctr " << ctr;
+        ASSERT_TRUE(shrincs_sign(message, cached, ctr, {}, b, &cache)) << "ctr " << ctr;
+
+        EXPECT_EQ(a, b) << "ctr " << ctr;
+        EXPECT_TRUE(shrincs_verify(message, b, cached.pk)) << "ctr " << ctr;
+    }
+}
+
+}
+
+TEST(CacheTest, UnbalancedMatchesPlainPath) {
+    expect_cache_matches_plain({FXMSS_SHAPE_UNBALANCED, 16}, 0x31, 16);
+}
+
+TEST(CacheTest, BalancedMatchesPlainPath) {
+    expect_cache_matches_plain({FXMSS_SHAPE_BALANCED, 6}, 0x32, 63);
+}
+
+TEST(CacheTest, UnbalancedCacheHoldsEveryNode) {
+    std::vector<unsigned char> structure = {FXMSS_SHAPE_UNBALANCED, 255};
+
+    // Two nodes per depth, which is the whole caterpillar tree bar the root.
+    EXPECT_EQ(2u * 255u * N, FXMSS::fxmss_cache_size(structure.data()));
+}
+
+TEST(CacheTest, BalancedCacheStaysSmall) {
+    // A BDS state is O(depth), unlike the 2^depth nodes of the tree itself.
+    for (unsigned char depth : {8, 12, 16})
+    {
+        std::vector<unsigned char> structure = {FXMSS_SHAPE_BALANCED, depth};
+        EXPECT_LT(FXMSS::fxmss_cache_size(structure.data()), 4096u) << "depth " << (int)depth;
+    }
+}
+
+TEST(CacheTest, BalancedRejectsNonSequentialCounters) {
+    std::vector<unsigned char> seed = test_seed(0x33);
+    std::vector<unsigned char> structure = {FXMSS_SHAPE_BALANCED, 5};
+    std::vector<unsigned char> message(32, 1), cache, sig;
+
+    SecretKey sk;
+    ASSERT_TRUE(shrincs_keygen(seed.data(), structure, sk, &cache));
+
+    // The BDS state tracks one leaf, so skipping or replaying must be refused.
+    EXPECT_FALSE(shrincs_sign(message, sk, 4, {}, sig, &cache));
+    EXPECT_TRUE(shrincs_sign(message, sk, 0, {}, sig, &cache));
+    EXPECT_FALSE(shrincs_sign(message, sk, 0, {}, sig, &cache));
+    EXPECT_TRUE(shrincs_sign(message, sk, 1, {}, sig, &cache));
+}
+
+TEST(CacheTest, UnbalancedAcceptsAnyCounterOrder) {
+    std::vector<unsigned char> seed = test_seed(0x34);
+    std::vector<unsigned char> structure = {FXMSS_SHAPE_UNBALANCED, 8};
+    std::vector<unsigned char> message(32, 2), cache;
+
+    SecretKey sk;
+    ASSERT_TRUE(shrincs_keygen(seed.data(), structure, sk, &cache));
+
+    // The unbalanced cache is read-only, so counters may be used out of order.
+    for (uint32_t ctr : {5u, 0u, 8u, 3u, 5u})
+    {
+        std::vector<unsigned char> sig;
+        ASSERT_TRUE(shrincs_sign(message, sk, ctr, {}, sig, &cache)) << "ctr " << ctr;
+        EXPECT_TRUE(shrincs_verify(message, sig, sk.pk)) << "ctr " << ctr;
+    }
+}
+
+TEST(CacheTest, StatelessPathIgnoresCache) {
+    std::vector<unsigned char> seed = test_seed(0x35);
+    std::vector<unsigned char> structure = {FXMSS_SHAPE_UNBALANCED, 4};
+    std::vector<unsigned char> message(32, 3), cache;
+
+    SecretKey sk;
+    ASSERT_TRUE(shrincs_keygen(seed.data(), structure, sk, &cache));
+
+    std::vector<unsigned char> with_cache, without_cache;
+    ASSERT_TRUE(shrincs_sign(message, sk, 99, {}, with_cache, &cache));
+    ASSERT_TRUE(shrincs_sign(message, sk, 99, {}, without_cache));
+
+    EXPECT_EQ(SPHX_SIGNATURE_SIZE, with_cache.size());
+    EXPECT_EQ(without_cache, with_cache);
+    EXPECT_TRUE(shrincs_verify(message, with_cache, sk.pk));
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

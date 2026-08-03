@@ -12,8 +12,10 @@ namespace SHRINCS {
         }
     }
 
-    bool shrincs_keygen(unsigned char* bytes, const std::vector<unsigned char>& structure, SecretKey& out_sk)
+    bool shrincs_keygen(unsigned char* bytes, const std::vector<unsigned char>& structure, SecretKey& out_sk, std::vector<unsigned char>* out_cache)
     {
+        if (structure.size() != 2) return false;
+
         memcpy(out_sk.seed.data(), bytes, N);
         memcpy(out_sk.prf.data(), bytes + N, N);
         memcpy(out_sk.pk.seed.data(), bytes + (N << 1), N);
@@ -21,11 +23,22 @@ namespace SHRINCS {
         CSHA256 hash_ctx;
         sha256_add_to_ctx(hash_ctx, out_sk.pk.seed.data(), N);
         sha256_add_to_ctx(hash_ctx, zeros, 64 - N);
-        
+
         unsigned char adrs[22] = {0};
         setLayerAddress(adrs, SPHX_LAYER_COUNT - 1);
         XMSS::xmss_node(out_sk.seed.data(), hash_ctx, adrs, 0, SPHX_XMSS_HEIGHT, out_sk.pk.sl_root.data());
-        if (!FXMSS::fxmss_node(out_sk.seed.data(), hash_ctx, adrs, structure.data(), 0, FXMSS_HEIGHT, out_sk.pk.sf_root.data())) return false;
+
+        unsigned char* cache = NULL;
+        if (out_cache != NULL)
+        {
+            uint64_t cache_size = FXMSS::fxmss_cache_size(structure.data());
+            if (cache_size == 0) return false;
+
+            out_cache->assign(cache_size, 0);
+            cache = out_cache->data();
+        }
+
+        if (!FXMSS::fxmss_root(out_sk.seed.data(), hash_ctx, structure.data(), out_sk.pk.sf_root.data(), cache)) return false;
         out_sk.structure = structure;
 
         return true;
@@ -64,7 +77,7 @@ namespace SHRINCS {
         return false;
     }
 
-    bool shrincs_sign(const std::vector<unsigned char>& message, const SecretKey& sk, uint32_t state_ctr, const std::vector<unsigned char>& opt_rand, std::vector<unsigned char>& out)
+    bool shrincs_sign(const std::vector<unsigned char>& message, const SecretKey& sk, uint32_t state_ctr, const std::vector<unsigned char>& opt_rand, std::vector<unsigned char>& out, std::vector<unsigned char>* cache)
     {
         uint64_t leaf_index;
         uint8_t leaf_height;
@@ -102,10 +115,17 @@ namespace SHRINCS {
 
         memcpy(out.data(), r, N);
 
-        uint64_t leaf_index_be = htonll(leaf_index);
+        uint64_t leaf_index_be = htobe64(leaf_index);
         memcpy(out.data() + N, &leaf_index_be, 8);
 
-        return FXMSS::fxmss_sign(digest, sk.seed.data(), hash_ctx, leaf_index, leaf_height, sk.structure.data(), out.data() + N + 8);
+        unsigned char* cache_data = NULL;
+        if (cache != NULL)
+        {
+            if (cache->size() != FXMSS::fxmss_cache_size(sk.structure.data())) return false;
+            cache_data = cache->data();
+        }
+
+        return FXMSS::fxmss_sign(digest, sk.seed.data(), hash_ctx, leaf_index, leaf_height, sk.structure.data(), cache_data, out.data() + N + 8);
     }
 
     bool shrincs_verify(const std::vector<unsigned char>& message, const std::vector<unsigned char>& signature, const PublicKey& pk)
@@ -132,7 +152,7 @@ namespace SHRINCS {
 
         uint64_t leaf_index_be;
         memcpy(&leaf_index_be, signature.data() + N, 8);
-        uint64_t leaf_index = ntohll(leaf_index_be);
+        uint64_t leaf_index = be64toh(leaf_index_be);
 
         if (leaf_depth < 64 && leaf_index >= (UINT64_C(1) << leaf_depth)) return false;
 

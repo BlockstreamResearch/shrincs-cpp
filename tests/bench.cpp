@@ -49,7 +49,7 @@ int main()
 {
     SecretKey sk = SecretKey();
 
-    vector<unsigned char> structure, signature, opt_rand;
+    vector<unsigned char> structure, signature, opt_rand, cache;
     structure.push_back(0);
     structure.push_back(255);
 
@@ -57,7 +57,7 @@ int main()
     generate_random_bytes(seed, 48);
 
     auto start = std::chrono::high_resolution_clock::now();
-    shrincs_keygen(seed, structure, sk);
+    shrincs_keygen(seed, structure, sk, &cache);
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> elapsed = end - start;
     std::cout << "Keygen (unbalanced tree, 256 leafs): " << elapsed.count() << " ms" << std::endl;
@@ -68,7 +68,7 @@ int main()
     // hexStringToBytes("8a276ceb95d10ed7705c9e25c9987cb4b1eaf73bcae7f922058c4e46e906a778", message.data());
 
     start = std::chrono::high_resolution_clock::now();
-    shrincs_sign(message, sk, 0, opt_rand, signature);
+    shrincs_sign(message, sk, 0, opt_rand, signature, &cache);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     std::cout << "Stateful signing time: " << elapsed.count() << " ms" << std::endl;
@@ -85,7 +85,7 @@ int main()
     std::cout << std::endl;
 
     start = std::chrono::high_resolution_clock::now();
-    shrincs_sign(message, sk, 255, opt_rand, signature);
+    shrincs_sign(message, sk, 255, opt_rand, signature, &cache);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     std::cout << "Stateful signing time: " << elapsed.count() << " ms" << std::endl;
@@ -102,7 +102,7 @@ int main()
     std::cout << std::endl;
 
     start = std::chrono::high_resolution_clock::now();
-    shrincs_sign(message, sk, 256, opt_rand, signature);
+    shrincs_sign(message, sk, 256, opt_rand, signature, &cache);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     std::cout << "Stateless signing time: " << elapsed.count() << " ms" << std::endl;
@@ -122,14 +122,14 @@ int main()
     structure[1] = 10;
 
     start = std::chrono::high_resolution_clock::now();
-    shrincs_keygen(seed, structure, sk);
+    shrincs_keygen(seed, structure, sk, &cache);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     std::cout << "Keygen (balanced tree 2^10): " << elapsed.count() << " ms" << std::endl;
     std::cout << std::endl;
 
     start = std::chrono::high_resolution_clock::now();
-    shrincs_sign(message, sk, 0, opt_rand, signature);
+    shrincs_sign(message, sk, 0, opt_rand, signature, &cache);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     std::cout << "Stateful signing time: " << elapsed.count() << " ms" << std::endl;
@@ -144,7 +144,6 @@ int main()
     std::cout << "Stateful verification time: " << elapsed.count() << " ms" << std::endl;
     if (!is_valid) std::cout << "Error!" << std::endl;
     std::cout << std::endl;
-
 
     return 0;
 }

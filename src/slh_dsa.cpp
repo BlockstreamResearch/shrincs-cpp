@@ -18,10 +18,10 @@ namespace SLH_DSA
         uint64_t tree_index = 0, leaf_index = 0;
 
         memcpy(reinterpret_cast<unsigned char*>(&tree_index) + 8 - tree_index_size, tree_index_digest, tree_index_size);
-        *out_tree = ntohll(tree_index) & ((UINT64_C(1) << SPHX_TREE_INDEX_BITS) - 1);
+        *out_tree = be64toh(tree_index) & ((UINT64_C(1) << SPHX_TREE_INDEX_BITS) - 1);
 
         memcpy(reinterpret_cast<unsigned char*>(&leaf_index) + 8 - leaf_index_size, leaf_index_digest, leaf_index_size);
-        *out_leaf = ntohll(leaf_index) & ((UINT32_C(1) << SPHX_XMSS_HEIGHT) - 1);
+        *out_leaf = be64toh(leaf_index) & ((UINT32_C(1) << SPHX_XMSS_HEIGHT) - 1);
     }
 
     void slh_dsa_sign_internal(const unsigned char* message, uint32_t m_len, const unsigned char* sk_seed, const unsigned char* sk_prf, const unsigned char* pk_seed, const unsigned char* sl_root, const unsigned char* opt_rand, unsigned char* out)

@@ -3,9 +3,6 @@
 
 #include "btc_sha/sha256.h"
 #include <cstring>
-#include <cmath>
-#include <arpa/inet.h>
-#include <algorithm>
 #include "constants.h"
 
 using namespace Parameters;

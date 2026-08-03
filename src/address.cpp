@@ -9,7 +9,7 @@ namespace Address
 
     void setTreeAddress(unsigned char* adrs, uint64_t tree_addr) 
     {
-        tree_addr = htonll(tree_addr);
+        tree_addr = htobe64(tree_addr);
         memcpy(adrs + 1, & tree_addr, sizeof(tree_addr));
     }
 
@@ -20,25 +20,25 @@ namespace Address
 
     void set_10_14(unsigned char* adrs, uint32_t value) 
     {
-        value = htonl(value);
+        value = htobe32(value);
         memcpy(adrs + 10, &value, sizeof(value));
     }
 
     void set_14_18(unsigned char* adrs, uint32_t value) 
     {
-        value = htonl(value);
+        value = htobe32(value);
         memcpy(adrs + 14, &value, sizeof(value));
     }
 
     void set_14_22(unsigned char* adrs, uint64_t value)
     {
-        value = htonll(value);
+        value = htobe64(value);
         memcpy(adrs + 14, &value, sizeof(value));
     }
 
     void set_18_22(unsigned char* adrs, uint32_t value) 
     {
-        value = htonl(value);
+        value = htobe32(value);
         memcpy(adrs + 18, &value, sizeof(value));
     }
 }
