@@ -12,7 +12,7 @@ namespace SHRINCS {
         }
     }
 
-    bool shrincs_keygen(unsigned char* bytes, const std::vector<unsigned char>& structure, SecretKey& out_sk, std::vector<unsigned char>* out_cache)
+    bool shrincs_keygen(unsigned char* bytes, const std::vector<unsigned char>& structure, SecretKey& out_sk, std::vector<unsigned char>* out_cache, bool leaves_only)
     {
         if (structure.size() != 2) return false;
 
@@ -31,14 +31,14 @@ namespace SHRINCS {
         unsigned char* cache = NULL;
         if (out_cache != NULL)
         {
-            uint64_t cache_size = FXMSS::fxmss_cache_size(structure.data());
+            uint64_t cache_size = FXMSS::fxmss_cache_size(structure.data(), leaves_only);
             if (cache_size == 0) return false;
 
             out_cache->assign(cache_size, 0);
             cache = out_cache->data();
         }
 
-        if (!FXMSS::fxmss_root(out_sk.seed.data(), hash_ctx, structure.data(), out_sk.pk.sf_root.data(), cache)) return false;
+        if (!FXMSS::fxmss_root(out_sk.seed.data(), hash_ctx, structure.data(), out_sk.pk.sf_root.data(), cache, leaves_only)) return false;
         out_sk.structure = structure;
 
         return true;
@@ -77,7 +77,7 @@ namespace SHRINCS {
         return false;
     }
 
-    bool shrincs_sign(const std::vector<unsigned char>& message, const SecretKey& sk, uint32_t state_ctr, const std::vector<unsigned char>& opt_rand, std::vector<unsigned char>& out, std::vector<unsigned char>* cache)
+    bool shrincs_sign(const std::vector<unsigned char>& message, const SecretKey& sk, uint32_t state_ctr, const std::vector<unsigned char>& opt_rand, std::vector<unsigned char>& out, std::vector<unsigned char>* cache, bool leaves_only)
     {
         uint64_t leaf_index;
         uint8_t leaf_height;
@@ -121,11 +121,11 @@ namespace SHRINCS {
         unsigned char* cache_data = NULL;
         if (cache != NULL)
         {
-            if (cache->size() != FXMSS::fxmss_cache_size(sk.structure.data())) return false;
+            if (cache->size() != FXMSS::fxmss_cache_size(sk.structure.data(), leaves_only)) return false;
             cache_data = cache->data();
         }
 
-        return FXMSS::fxmss_sign(digest, sk.seed.data(), hash_ctx, leaf_index, leaf_height, sk.structure.data(), cache_data, out.data() + N + 8);
+        return FXMSS::fxmss_sign(digest, sk.seed.data(), hash_ctx, leaf_index, leaf_height, sk.structure.data(), cache_data, leaves_only, out.data() + N + 8);
     }
 
     bool shrincs_verify(const std::vector<unsigned char>& message, const std::vector<unsigned char>& signature, const PublicKey& pk)

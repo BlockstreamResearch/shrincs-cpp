@@ -695,7 +695,7 @@ void expect_cache_matches_plain(const std::vector<unsigned char>& structure, uns
     ASSERT_TRUE(shrincs_keygen(seed.data(), structure, cached, &cache));
 
     EXPECT_EQ(plain.pk.sf_root, cached.pk.sf_root);
-    EXPECT_EQ(cache.size(), FXMSS::fxmss_cache_size(structure.data()));
+    EXPECT_EQ(cache.size(), FXMSS::fxmss_cache_size(structure.data(), false));
     EXPECT_GT(cache.size(), 0u);
 
     for (uint32_t ctr = 0; ctr <= last_ctr; ctr++)
@@ -719,11 +719,52 @@ TEST(CacheTest, BalancedMatchesPlainPath) {
     expect_cache_matches_plain({FXMSS_SHAPE_BALANCED, 6}, 0x32, 63);
 }
 
+// The leaf-only cache drops the internal nodes and rebuilds the single one an
+// authentication path needs, which must not change the signature.
+TEST(CacheTest, UnbalancedLeavesOnlyMatchesFullCache) {
+    std::vector<unsigned char> structure = {FXMSS_SHAPE_UNBALANCED, 16};
+    std::vector<unsigned char> seed = test_seed(0x36);
+    std::vector<unsigned char> message(32, 0xa7);
+
+    SecretKey full, leaves;
+    std::vector<unsigned char> cache_full, cache_leaves;
+    ASSERT_TRUE(shrincs_keygen(seed.data(), structure, full, &cache_full));
+    ASSERT_TRUE(shrincs_keygen(seed.data(), structure, leaves, &cache_leaves, true));
+
+    EXPECT_EQ(full.pk.sf_root, leaves.pk.sf_root);
+    EXPECT_EQ(cache_leaves.size(), (structure[1] + 1u) * N);
+    EXPECT_LT(cache_leaves.size(), cache_full.size());
+
+    for (uint32_t ctr = 0; ctr <= structure[1]; ctr++)
+    {
+        std::vector<unsigned char> a, b;
+        ASSERT_TRUE(shrincs_sign(message, full, ctr, {}, a, &cache_full)) << "ctr " << ctr;
+        ASSERT_TRUE(shrincs_sign(message, leaves, ctr, {}, b, &cache_leaves, true)) << "ctr " << ctr;
+
+        EXPECT_EQ(a, b) << "ctr " << ctr;
+        EXPECT_TRUE(shrincs_verify(message, b, leaves.pk)) << "ctr " << ctr;
+    }
+}
+
+TEST(CacheTest, CacheModeMismatchIsRejected) {
+    std::vector<unsigned char> structure = {FXMSS_SHAPE_UNBALANCED, 16};
+    std::vector<unsigned char> seed = test_seed(0x37);
+    std::vector<unsigned char> message(32, 1), sig;
+
+    SecretKey sk;
+    std::vector<unsigned char> cache_leaves;
+    ASSERT_TRUE(shrincs_keygen(seed.data(), structure, sk, &cache_leaves, true));
+
+    // Signing must not read a leaf cache as though it held every node.
+    EXPECT_FALSE(shrincs_sign(message, sk, 0, {}, sig, &cache_leaves));
+    EXPECT_TRUE(shrincs_sign(message, sk, 0, {}, sig, &cache_leaves, true));
+}
+
 TEST(CacheTest, UnbalancedCacheHoldsEveryNode) {
     std::vector<unsigned char> structure = {FXMSS_SHAPE_UNBALANCED, 255};
 
     // Two nodes per depth, which is the whole caterpillar tree bar the root.
-    EXPECT_EQ(2u * 255u * N, FXMSS::fxmss_cache_size(structure.data()));
+    EXPECT_EQ(2u * 255u * N, FXMSS::fxmss_cache_size(structure.data(), false));
 }
 
 TEST(CacheTest, BalancedCacheStaysSmall) {
@@ -731,7 +772,7 @@ TEST(CacheTest, BalancedCacheStaysSmall) {
     for (unsigned char depth : {8, 12, 16})
     {
         std::vector<unsigned char> structure = {FXMSS_SHAPE_BALANCED, depth};
-        EXPECT_LT(FXMSS::fxmss_cache_size(structure.data()), 4096u) << "depth " << (int)depth;
+        EXPECT_LT(FXMSS::fxmss_cache_size(structure.data(), false), 4096u) << "depth " << (int)depth;
     }
 }
 

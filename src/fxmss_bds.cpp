@@ -13,6 +13,7 @@ namespace BDS
     static const uint32_t OFF_STACKLEVELS = 8;
 
     static const unsigned char DEPTH_MAX = 31;
+    static const uint32_t LEAF_BLOCK = 512;
 
     struct Layout
     {
@@ -104,34 +105,50 @@ namespace BDS
         uint32_t stackoffset = 0;
         uint64_t leaf_count = UINT64_C(1) << l.depth;
 
-        for (uint64_t idx = 0; idx < leaf_count; idx++)
+        unsigned char block[LEAF_BLOCK * N];
+
+        for (uint64_t start = 0; start < leaf_count; start += LEAF_BLOCK)
         {
-            gen_leaf(sk_seed, hash_ctx, l.depth, idx, stack + (uint64_t)stackoffset * N);
-            levels[stackoffset] = 0;
-            stackoffset++;
+            uint64_t remaining = leaf_count - start;
+            int block_count = (int)(remaining < LEAF_BLOCK ? remaining : LEAF_BLOCK);
 
-            while (stackoffset > 1 && levels[stackoffset - 1] == levels[stackoffset - 2])
+            #pragma omp parallel for schedule(static) if(block_count >= 16)
+            for (int i = 0; i < block_count; i++)
             {
-                uint32_t node_level = levels[stackoffset - 1];
-                const unsigned char* top = stack + (uint64_t)(stackoffset - 1) * N;
+                gen_leaf(sk_seed, hash_ctx, l.depth, start + (uint64_t)i, block + (size_t)i * N);
+            }
 
-                if ((idx >> node_level) == 1)
-                {
-                    memcpy(auth + (uint64_t)node_level * N, top, N);
-                }
-                else if (node_level < l.depth - l.k)
-                {
-                    if ((idx >> node_level) == 3) memcpy(state + l.treehash + node_level * TH_ENTRY + TH_NODE, top, N);
-                }
-                else
-                {
-                    memcpy(retain + retain_slot(l.depth, node_level, idx) * N, top, N);
-                }
+            for (int b = 0; b < block_count; b++)
+            {
+                uint64_t idx = start + (uint64_t)b;
 
-                hash_pair(hash_ctx, l.depth, node_level, idx >> (node_level + 1),
-                          stack + (uint64_t)(stackoffset - 2) * N, stack + (uint64_t)(stackoffset - 2) * N);
-                levels[stackoffset - 2]++;
-                stackoffset--;
+                memcpy(stack + (uint64_t)stackoffset * N, block + (size_t)b * N, N);
+                levels[stackoffset] = 0;
+                stackoffset++;
+
+                while (stackoffset > 1 && levels[stackoffset - 1] == levels[stackoffset - 2])
+                {
+                    uint32_t node_level = levels[stackoffset - 1];
+                    const unsigned char* top = stack + (uint64_t)(stackoffset - 1) * N;
+
+                    if ((idx >> node_level) == 1)
+                    {
+                        memcpy(auth + (uint64_t)node_level * N, top, N);
+                    }
+                    else if (node_level < l.depth - l.k)
+                    {
+                        if ((idx >> node_level) == 3) memcpy(state + l.treehash + node_level * TH_ENTRY + TH_NODE, top, N);
+                    }
+                    else
+                    {
+                        memcpy(retain + retain_slot(l.depth, node_level, idx) * N, top, N);
+                    }
+
+                    hash_pair(hash_ctx, l.depth, node_level, idx >> (node_level + 1),
+                              stack + (uint64_t)(stackoffset - 2) * N, stack + (uint64_t)(stackoffset - 2) * N);
+                    levels[stackoffset - 2]++;
+                    stackoffset--;
+                }
             }
         }
 

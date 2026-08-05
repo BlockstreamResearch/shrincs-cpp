@@ -39,18 +39,21 @@ namespace FORS
         uint32_t indexes[SPHX_FORS_COUNT];
         WOTS::base_2b(message, SPHX_FORS_HEIGHT, SPHX_FORS_COUNT, indexes);
 
-        uint32_t leaf_index, sibling_index, offset = 0;
-        for (uint32_t i = 0; i < SPHX_FORS_COUNT; i++)
+        #pragma omp parallel for schedule(static)
+        for (int i = 0; i < (int)SPHX_FORS_COUNT; i++)
         {
-            leaf_index = i * (1 << SPHX_FORS_HEIGHT) + indexes[i];
-            fors_sk_gen(sk_seed, hash_ctx, adrs, leaf_index, out + offset);
-            offset += N;
+            unsigned char tree_adrs[22];
+            memcpy(tree_adrs, adrs, 22);
+
+            unsigned char* sig = out + (size_t)i * (SPHX_FORS_HEIGHT + 1) * N;
+
+            uint32_t leaf_index = i * (1 << SPHX_FORS_HEIGHT) + indexes[i];
+            fors_sk_gen(sk_seed, hash_ctx, tree_adrs, leaf_index, sig);
 
             for (uint32_t j = 0; j < SPHX_FORS_HEIGHT; j++)
             {
-                sibling_index = i * (1 << (SPHX_FORS_HEIGHT - j)) + ((indexes[i] >> j) ^ 1);
-                fors_node(sk_seed, hash_ctx, adrs, sibling_index, j, out + offset);
-                offset += N;
+                uint32_t sibling_index = i * (1 << (SPHX_FORS_HEIGHT - j)) + ((indexes[i] >> j) ^ 1);
+                fors_node(sk_seed, hash_ctx, tree_adrs, sibling_index, j, sig + (size_t)(j + 1) * N);
             }
         }
     }

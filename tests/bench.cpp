@@ -1,9 +1,18 @@
-#include <iostream>
+#include <cstdio>
 #include <chrono>
+#include <string>
+#include <vector>
 #include "shrincs.h"
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 using namespace std;
 using namespace SHRINCS;
+
+static const int RUNS_SLOW = 100;
+static const int RUNS_FAST = 5000;
 
 // Just leave it here, in case we want to print signatures in hex for debugging
 void print_hex(const unsigned char* data, size_t len) {
@@ -11,25 +20,6 @@ void print_hex(const unsigned char* data, size_t len) {
         printf("%02x", data[i]);
     }
     printf("\n");
-}
-
-std::vector<unsigned char> hex_to_bytes(std::string hex) {
-    // Видаляємо "0x", якщо він є
-    if (hex.compare(0, 2, "0x") == 0) {
-        hex = hex.substr(2);
-    }
-
-    if (hex.length() % 2 != 0) {
-        throw std::runtime_error("Hex string must have an even length");
-    }
-
-    std::vector<unsigned char> bytes;
-    for (size_t i = 0; i < hex.length(); i += 2) {
-        std::string byteString = hex.substr(i, 2);
-        unsigned char byte = (unsigned char) strtol(byteString.c_str(), nullptr, 16);
-        bytes.push_back(byte);
-    }
-    return bytes;
 }
 
 unsigned char hexCharToInt(char c) {
@@ -45,107 +35,104 @@ void hexStringToBytes(const std::string& hex, unsigned char* buffer) {
     }
 }
 
-int main() 
+template <typename F>
+static void bench(const char* label, int reps, size_t sig_size, F fn)
 {
-    SHA256AutoDetect();
-    
-    SecretKey sk = SecretKey();
+    double total = 0, best = 1e18;
 
-    vector<unsigned char> structure, signature, opt_rand, cache;
-    structure.push_back(0);
-    structure.push_back(255);
+    for (int i = 0; i < reps; i++)
+    {
+        auto start = std::chrono::high_resolution_clock::now();
+        fn();
+        double elapsed = std::chrono::duration<double, std::micro>(
+            std::chrono::high_resolution_clock::now() - start).count();
+
+        total += elapsed;
+        if (elapsed < best) best = elapsed;
+    }
+
+    printf("  %-30s %12.2f %12.2f %7d", label, total / reps, best, reps);
+    if (sig_size) printf("  %8zu\n", sig_size);
+    else          printf("  %8s\n", "-");
+}
+
+static void header(const char* title, const char* note)
+{
+    printf("\n%s\n", title);
+    if (note) printf("%s\n", note);
+    printf("  %-30s %12s %12s %7s  %8s\n", "operation", "mean, us", "min, us", "runs", "bytes");
+}
+
+int main()
+{
+    printf("SHA256:      %s\n", SHA256AutoDetect().c_str());
+#ifdef _OPENMP
+    printf("Parallelism: OpenMP, %d threads\n", omp_get_max_threads());
+#else
+    printf("Parallelism: disabled (build with OPENMP=1)\n");
+#endif
 
     unsigned char seed[48];
     generate_random_bytes(seed, 48);
 
-    auto start = std::chrono::high_resolution_clock::now();
-    shrincs_keygen(seed, structure, sk, &cache);
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> elapsed = end - start;
-    std::cout << "Keygen (unbalanced tree, 256 leafs): " << elapsed.count() << " ms" << std::endl;
-    std::cout << std::endl;
-
-    std::vector<unsigned char> message = std::vector<unsigned char>(32, 0);
-
+    vector<unsigned char> message(32, 0);
+    vector<unsigned char> signature, opt_rand, cache, leaf_cache;
     // hexStringToBytes("8a276ceb95d10ed7705c9e25c9987cb4b1eaf73bcae7f922058c4e46e906a778", message.data());
 
-    start = std::chrono::high_resolution_clock::now();
+    vector<unsigned char> structure = {FXMSS_SHAPE_UNBALANCED, 255};
+    SecretKey sk;
+
+    char note[128];
+    snprintf(note, sizeof(note), "cache: %llu bytes full, %llu bytes leaves only",
+             (unsigned long long)FXMSS::fxmss_cache_size(structure.data(), false),
+             (unsigned long long)FXMSS::fxmss_cache_size(structure.data(), true));
+
+    header("UNBALANCED tree, depth 255", note);
+    bench("keygen", RUNS_SLOW, 0, [&] { SecretKey k; shrincs_keygen(seed, structure, k); });
+    bench("keygen, full cache", RUNS_SLOW, 0, [&] { SecretKey k; vector<unsigned char> c; shrincs_keygen(seed, structure, k, &c); });
+    bench("keygen, leaf cache", RUNS_SLOW, 0, [&] { SecretKey k; vector<unsigned char> c; shrincs_keygen(seed, structure, k, &c, true); });
+
+    shrincs_keygen(seed, structure, sk, &cache);
+    shrincs_keygen(seed, structure, sk, &leaf_cache, true);
+
     shrincs_sign(message, sk, 0, opt_rand, signature, &cache);
-    end = std::chrono::high_resolution_clock::now();
-    elapsed = end - start;
-    std::cout << "Stateful signing time: " << elapsed.count() << " ms" << std::endl;
-    std::cout << "Stateful (state = 0) signature size: " << signature.size() << " bytes" << std::endl;
+    bench("sign   state 0", RUNS_SLOW, signature.size(), [&] { shrincs_sign(message, sk, 0, opt_rand, signature); });
+    bench("sign   state 0, full cache", RUNS_FAST, signature.size(), [&] { shrincs_sign(message, sk, 0, opt_rand, signature, &cache); });
+    bench("sign   state 0, leaf cache", RUNS_FAST, signature.size(), [&] { shrincs_sign(message, sk, 0, opt_rand, signature, &leaf_cache, true); });
+    bench("verify state 0", RUNS_FAST, 0, [&] { shrincs_verify(message, signature, sk.pk); });
 
-    // print_hex(signature.data(), signature.size());
-
-    start = std::chrono::high_resolution_clock::now();
-    bool is_valid = shrincs_verify(message, signature, sk.pk);
-    end = std::chrono::high_resolution_clock::now();
-    elapsed = end - start;
-    std::cout << "Stateful verification time: " << elapsed.count() << " ms" << std::endl;
-    if (!is_valid) std::cout << "Error!" << std::endl;
-    std::cout << std::endl;
-
-    start = std::chrono::high_resolution_clock::now();
     shrincs_sign(message, sk, 255, opt_rand, signature, &cache);
-    end = std::chrono::high_resolution_clock::now();
-    elapsed = end - start;
-    std::cout << "Stateful signing time: " << elapsed.count() << " ms" << std::endl;
-    std::cout << "Stateful (state = 255) signature size: " << signature.size() << " bytes" << std::endl;
+    bench("sign   state 255", RUNS_SLOW, signature.size(), [&] { shrincs_sign(message, sk, 255, opt_rand, signature); });
+    bench("sign   state 255, full cache", RUNS_FAST, signature.size(), [&] { shrincs_sign(message, sk, 255, opt_rand, signature, &cache); });
+    bench("sign   state 255, leaf cache", RUNS_FAST, signature.size(), [&] { shrincs_sign(message, sk, 255, opt_rand, signature, &leaf_cache, true); });
+    bench("verify state 255", RUNS_FAST, 0, [&] { shrincs_verify(message, signature, sk.pk); });
 
-    // print_hex(signature.data(), signature.size());
+    shrincs_sign(message, sk, 256, opt_rand, signature);
+    bench("sign   stateless", RUNS_SLOW, signature.size(), [&] { shrincs_sign(message, sk, 256, opt_rand, signature); });
+    bench("verify stateless", RUNS_FAST, 0, [&] { shrincs_verify(message, signature, sk.pk); });
 
-    start = std::chrono::high_resolution_clock::now();
-    is_valid = shrincs_verify(message, signature, sk.pk);
-    end = std::chrono::high_resolution_clock::now();
-    elapsed = end - start;
-    std::cout << "Stateful verification time: " << elapsed.count() << " ms" << std::endl;
-    if (!is_valid) std::cout << "Error!" << std::endl;
-    std::cout << std::endl;
-
-    start = std::chrono::high_resolution_clock::now();
-    shrincs_sign(message, sk, 256, opt_rand, signature, &cache);
-    end = std::chrono::high_resolution_clock::now();
-    elapsed = end - start;
-    std::cout << "Stateless signing time: " << elapsed.count() << " ms" << std::endl;
-    std::cout << "Stateless signature size: " << signature.size() << " bytes" << std::endl;
-
-    // print_hex(signature.data(), signature.size());
-
-    start = std::chrono::high_resolution_clock::now();
-    is_valid = shrincs_verify(message, signature, sk.pk);
-    end = std::chrono::high_resolution_clock::now();
-    elapsed = end - start;
-    std::cout << "Stateless verification time: " << elapsed.count() << " ms" << std::endl;
-    if (!is_valid) std::cout << "Error!" << std::endl;
-    std::cout << std::endl;
-
-    structure[0] = 1;
+    structure[0] = FXMSS_SHAPE_BALANCED;
     structure[1] = 10;
 
-    start = std::chrono::high_resolution_clock::now();
+    snprintf(note, sizeof(note), "cache: %llu bytes BDS state (leaves only does not apply)",
+             (unsigned long long)FXMSS::fxmss_cache_size(structure.data(), false));
+
+    header("BALANCED tree, depth 10", note);
+    bench("keygen", RUNS_SLOW, 0, [&] { SecretKey k; shrincs_keygen(seed, structure, k); });
+    bench("keygen, build cache", RUNS_SLOW, 0, [&] { SecretKey k; vector<unsigned char> c; shrincs_keygen(seed, structure, k, &c); });
     shrincs_keygen(seed, structure, sk, &cache);
-    end = std::chrono::high_resolution_clock::now();
-    elapsed = end - start;
-    std::cout << "Keygen (balanced tree 2^10): " << elapsed.count() << " ms" << std::endl;
-    std::cout << std::endl;
 
-    start = std::chrono::high_resolution_clock::now();
-    shrincs_sign(message, sk, 0, opt_rand, signature, &cache);
-    end = std::chrono::high_resolution_clock::now();
-    elapsed = end - start;
-    std::cout << "Stateful signing time: " << elapsed.count() << " ms" << std::endl;
-    std::cout << "Stateful (state = 0, xmss) signature size: " << signature.size() << " bytes" << std::endl;
+    uint32_t state_ctr = 0;
+    shrincs_sign(message, sk, state_ctr++, opt_rand, signature, &cache);
 
-    // print_hex(signature.data(), signature.size());
+    int bds_runs = (1 << structure[1]) - 1;
+    if (bds_runs > RUNS_FAST) bds_runs = RUNS_FAST;
 
-    start = std::chrono::high_resolution_clock::now();
-    is_valid = shrincs_verify(message, signature, sk.pk);
-    end = std::chrono::high_resolution_clock::now();
-    elapsed = end - start;
-    std::cout << "Stateful verification time: " << elapsed.count() << " ms" << std::endl;
-    if (!is_valid) std::cout << "Error!" << std::endl;
-    std::cout << std::endl;
+    bench("sign   stateful", RUNS_SLOW, signature.size(), [&] { shrincs_sign(message, sk, 0, opt_rand, signature); });
+    bench("sign   stateful, cached", bds_runs, signature.size(), [&] { shrincs_sign(message, sk, state_ctr++, opt_rand, signature, &cache); });
+    bench("verify stateful", RUNS_FAST, 0, [&] { shrincs_verify(message, signature, sk.pk); });
+
+    printf("\n");
 
     return 0;
 }
