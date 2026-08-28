@@ -70,18 +70,17 @@ namespace HASH
 
     void h_grind(CSHA256& base_ctx, unsigned char* adrs, const unsigned char* digest, uint32_t counter, unsigned char* out)
     {
-        // assert counter <= 0xFFFF
-
         CSHA256 ctx = base_ctx;
         sha256_add_to_ctx(ctx, adrs, 10);
         sha256_add_to_ctx(ctx, digest, N << 1);
-        sha256_add_to_ctx(ctx, zeros, 4);
+        sha256_add_to_ctx(ctx, zeros, 6 - WOTS_C_COUNTER_SIZE);
 
-        unsigned char counter_be[2] = {
-            static_cast<unsigned char>(counter >> 8),
-            static_cast<unsigned char>(counter)
-        };
-        sha256_add_to_ctx(ctx, counter_be, 2);
+        unsigned char counter_be[WOTS_C_COUNTER_SIZE];
+        for (uint32_t i = 0; i < WOTS_C_COUNTER_SIZE; i++)
+        {
+            counter_be[i] = static_cast<unsigned char>(counter >> (8 * (WOTS_C_COUNTER_SIZE - 1 - i)));
+        }
+        sha256_add_to_ctx(ctx, counter_be, WOTS_C_COUNTER_SIZE);
         sha256_finalize(ctx, out);
     }
 
@@ -179,8 +178,8 @@ namespace HASH
         CSHA256 ctx_e;
         sha256_add_to_ctx(ctx_e, r, N);
         sha256_add_to_ctx(ctx_e, pk_seed, N);
-        sha256_add_to_ctx(ctx_e, adrs, 9);
         sha256_add_to_ctx(ctx_e, tmp, 32);
+        sha256_add_to_ctx(ctx_e, adrs, 9);
         sha256_finalize_32(ctx_e, out);
     }
 }

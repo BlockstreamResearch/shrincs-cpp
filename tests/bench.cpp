@@ -56,6 +56,17 @@ static void bench(const char* label, int reps, size_t sig_size, F fn)
     else          printf("  %8s\n", "-");
 }
 
+// The counter is passed by pointer so that a null one selects the stateless path.
+static bool sign_at(const vector<unsigned char>& message, const SecretKey& sk, uint64_t state_ctr, const vector<unsigned char>& opt_rand, vector<unsigned char>& out, vector<unsigned char>* cache = NULL, bool leaves_only = false)
+{
+    return shrincs_sign(message, {}, sk, &state_ctr, opt_rand, out, cache, leaves_only);
+}
+
+static bool verify(const vector<unsigned char>& message, const vector<unsigned char>& signature, const PublicKey& pk)
+{
+    return shrincs_verify(message, signature, {}, pk);
+}
+
 static void header(const char* title, const char* note)
 {
     printf("\n%s\n", title);
@@ -72,8 +83,8 @@ int main()
     printf("Parallelism: disabled (build with OPENMP=1)\n");
 #endif
 
-    unsigned char seed[48];
-    generate_random_bytes(seed, 48);
+    vector<unsigned char> seed(48);
+    generate_random_bytes(seed.data(), seed.size());
 
     vector<unsigned char> message(32, 0);
     vector<unsigned char> signature, opt_rand, cache, leaf_cache;
@@ -95,21 +106,21 @@ int main()
     shrincs_keygen(seed, structure, sk, &cache);
     shrincs_keygen(seed, structure, sk, &leaf_cache, true);
 
-    shrincs_sign(message, sk, 0, opt_rand, signature, &cache);
-    bench("sign   state 0", RUNS_SLOW, signature.size(), [&] { shrincs_sign(message, sk, 0, opt_rand, signature); });
-    bench("sign   state 0, full cache", RUNS_FAST, signature.size(), [&] { shrincs_sign(message, sk, 0, opt_rand, signature, &cache); });
-    bench("sign   state 0, leaf cache", RUNS_FAST, signature.size(), [&] { shrincs_sign(message, sk, 0, opt_rand, signature, &leaf_cache, true); });
-    bench("verify state 0", RUNS_FAST, 0, [&] { shrincs_verify(message, signature, sk.pk); });
+    sign_at(message, sk, 0, opt_rand, signature, &cache);
+    bench("sign   state 0", RUNS_SLOW, signature.size(), [&] { sign_at(message, sk, 0, opt_rand, signature); });
+    bench("sign   state 0, full cache", RUNS_FAST, signature.size(), [&] { sign_at(message, sk, 0, opt_rand, signature, &cache); });
+    bench("sign   state 0, leaf cache", RUNS_FAST, signature.size(), [&] { sign_at(message, sk, 0, opt_rand, signature, &leaf_cache, true); });
+    bench("verify state 0", RUNS_FAST, 0, [&] { verify(message, signature, sk.pk); });
 
-    shrincs_sign(message, sk, 255, opt_rand, signature, &cache);
-    bench("sign   state 255", RUNS_SLOW, signature.size(), [&] { shrincs_sign(message, sk, 255, opt_rand, signature); });
-    bench("sign   state 255, full cache", RUNS_FAST, signature.size(), [&] { shrincs_sign(message, sk, 255, opt_rand, signature, &cache); });
-    bench("sign   state 255, leaf cache", RUNS_FAST, signature.size(), [&] { shrincs_sign(message, sk, 255, opt_rand, signature, &leaf_cache, true); });
-    bench("verify state 255", RUNS_FAST, 0, [&] { shrincs_verify(message, signature, sk.pk); });
+    sign_at(message, sk, 255, opt_rand, signature, &cache);
+    bench("sign   state 255", RUNS_SLOW, signature.size(), [&] { sign_at(message, sk, 255, opt_rand, signature); });
+    bench("sign   state 255, full cache", RUNS_FAST, signature.size(), [&] { sign_at(message, sk, 255, opt_rand, signature, &cache); });
+    bench("sign   state 255, leaf cache", RUNS_FAST, signature.size(), [&] { sign_at(message, sk, 255, opt_rand, signature, &leaf_cache, true); });
+    bench("verify state 255", RUNS_FAST, 0, [&] { verify(message, signature, sk.pk); });
 
-    shrincs_sign(message, sk, 256, opt_rand, signature);
-    bench("sign   stateless", RUNS_SLOW, signature.size(), [&] { shrincs_sign(message, sk, 256, opt_rand, signature); });
-    bench("verify stateless", RUNS_FAST, 0, [&] { shrincs_verify(message, signature, sk.pk); });
+    sign_at(message, sk, 256, opt_rand, signature);
+    bench("sign   stateless", RUNS_SLOW, signature.size(), [&] { sign_at(message, sk, 256, opt_rand, signature); });
+    bench("verify stateless", RUNS_FAST, 0, [&] { verify(message, signature, sk.pk); });
 
     structure[0] = FXMSS_SHAPE_BALANCED;
     structure[1] = 10;
@@ -123,14 +134,14 @@ int main()
     shrincs_keygen(seed, structure, sk, &cache);
 
     uint32_t state_ctr = 0;
-    shrincs_sign(message, sk, state_ctr++, opt_rand, signature, &cache);
+    sign_at(message, sk, state_ctr++, opt_rand, signature, &cache);
 
     int bds_runs = (1 << structure[1]) - 1;
     if (bds_runs > RUNS_FAST) bds_runs = RUNS_FAST;
 
-    bench("sign   stateful", RUNS_SLOW, signature.size(), [&] { shrincs_sign(message, sk, 0, opt_rand, signature); });
-    bench("sign   stateful, cached", bds_runs, signature.size(), [&] { shrincs_sign(message, sk, state_ctr++, opt_rand, signature, &cache); });
-    bench("verify stateful", RUNS_FAST, 0, [&] { shrincs_verify(message, signature, sk.pk); });
+    bench("sign   stateful", RUNS_SLOW, signature.size(), [&] { sign_at(message, sk, 0, opt_rand, signature); });
+    bench("sign   stateful, cached", bds_runs, signature.size(), [&] { sign_at(message, sk, state_ctr++, opt_rand, signature, &cache); });
+    bench("verify stateful", RUNS_FAST, 0, [&] { verify(message, signature, sk.pk); });
 
     printf("\n");
 

@@ -7,6 +7,9 @@ namespace Parameters
 {
     inline constexpr uint32_t WOTS_C_CHAIN_BITS = 4;
     inline constexpr uint32_t WOTS_C_CHAIN_COUNT = 32;
+
+    inline constexpr uint32_t WOTS_C_COUNTER_SIZE = 2;
+
     inline constexpr uint32_t FXMSS_HEIGHT = 255;
 
     inline constexpr uint32_t N = 16;
@@ -19,10 +22,13 @@ namespace Parameters
     inline constexpr uint32_t SPHX_FORS_HEIGHT = 13;
     inline constexpr uint32_t SPHX_FORS_COUNT = 10;
 
-    inline constexpr uint32_t WOTS_C_CHAINS_SIZE = WOTS_C_CHAIN_COUNT << 4;
+    static_assert(WOTS_C_CHAIN_BITS * WOTS_C_CHAIN_COUNT == 8 * N);
+    static_assert(WOTS_C_COUNTER_SIZE >= 1 && WOTS_C_COUNTER_SIZE <= 6);
+
+    inline constexpr uint32_t WOTS_C_CHAINS_SIZE = WOTS_C_CHAIN_COUNT * N;
     inline constexpr uint32_t WOTS_C_CONSTANT_SUM = (WOTS_C_CHAIN_COUNT * ((1 << WOTS_C_CHAIN_BITS) - 1) + 1) >> 1;
-    inline constexpr uint32_t FXMSS_SIGNATURE_SIZE_MIN = 2 + WOTS_C_CHAINS_SIZE + 16;
-    inline constexpr uint32_t FXMSS_SIGNATURE_SIZE_MAX = 2 + WOTS_C_CHAINS_SIZE + 16 * FXMSS_HEIGHT;
+    inline constexpr uint32_t FXMSS_SIGNATURE_SIZE_MIN = WOTS_C_COUNTER_SIZE + WOTS_C_CHAINS_SIZE + 16;
+    inline constexpr uint32_t FXMSS_SIGNATURE_SIZE_MAX = WOTS_C_COUNTER_SIZE + WOTS_C_CHAINS_SIZE + 16 * FXMSS_HEIGHT;
 
     inline constexpr uint32_t WOTS_TW_CHAINS_SIZE = WOTS_TW_CHAIN_COUNT << 4;
     inline constexpr uint32_t WOTS_TW_CHECKSUM_MAX = WOTS_TW_CHAIN_COUNT1 * ((1 << WOTS_TW_CHAIN_BITS) - 1);
@@ -31,6 +37,10 @@ namespace Parameters
     inline constexpr uint32_t FORS_DIGEST_SIZE = (SPHX_FORS_COUNT * SPHX_FORS_HEIGHT + 7) >> 3;
     inline constexpr uint32_t FORS_SIGNATURE_SIZE = (SPHX_FORS_COUNT << 4) * (SPHX_FORS_HEIGHT + 1);
     inline constexpr uint32_t SPHX_SIGNATURE_SIZE = 16 + FORS_SIGNATURE_SIZE + HYPERTREE_SIGNATURE_SIZE;
+
+    inline constexpr uint32_t SHRINCS_SF_SIGNATURE_SIZE_MIN = 1 + 16 + 1 + FXMSS_SIGNATURE_SIZE_MIN;
+    inline constexpr uint32_t SHRINCS_SF_SIGNATURE_SIZE_MAX = 1 + 16 + 8 + FXMSS_SIGNATURE_SIZE_MAX;
+    inline constexpr uint32_t SHRINCS_SL_SIGNATURE_SIZE     = 1 + SPHX_SIGNATURE_SIZE;
     inline constexpr uint32_t SPHX_TREE_INDEX_BITS = SPHX_XMSS_HEIGHT * (SPHX_LAYER_COUNT - 1);
     inline constexpr uint32_t H = SPHX_LAYER_COUNT * SPHX_XMSS_HEIGHT;
     inline constexpr uint32_t M = ((SPHX_FORS_HEIGHT * SPHX_FORS_COUNT + 7) >> 3) + ((SPHX_XMSS_HEIGHT * (SPHX_LAYER_COUNT - 1) + 7) >> 3) + ((SPHX_XMSS_HEIGHT + 7) >> 3);

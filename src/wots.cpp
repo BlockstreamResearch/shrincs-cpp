@@ -120,16 +120,19 @@ namespace WOTS
     {
         unsigned char wots_sk[WOTS_C_CHAIN_COUNT][N];
 
+        unsigned char sf_structure[2] = {adrs[10], adrs[11]};
+
         unsigned char sk[N];
-        set_10_14(adrs, 0);
         for (uint32_t i = 0; i < WOTS_C_CHAIN_COUNT; i++)
         {
             setType(adrs, SF_WOTS_C_PRF);
+            memcpy(adrs + 10, sf_structure, 2);
             set_14_18(adrs, i);
             set_18_22(adrs, 0);
 
             prf(hash_ctx, sk_seed, adrs, sk);
             setType(adrs, SF_WOTS_C_HASH);
+            set_10_14(adrs, 0);
             chain(sk, 0, (1 << WOTS_C_CHAIN_BITS) - 1, hash_ctx, adrs, wots_sk[i]);
         }
         
@@ -147,26 +150,28 @@ namespace WOTS
         CSHA256 base_ctx = hash_ctx;
         sha256_add_to_ctx(base_ctx, adrs, 10);
         sha256_add_to_ctx(base_ctx, message, N << 1);
-        sha256_add_to_ctx(base_ctx, zeros, 4);
+        sha256_add_to_ctx(base_ctx, zeros, 6 - WOTS_C_COUNTER_SIZE);
 
-        for (uint32_t i = 0; i <= UINT16_MAX; i++)
+        const uint64_t counter_limit = UINT64_C(1) << (8 * WOTS_C_COUNTER_SIZE);
+        for (uint64_t i = 0; i < counter_limit; i++)
         {
             // h_grind(hash_ctx, adrs, message, i, tmp);
 
-            unsigned char counter_be[2] = {
-                static_cast<unsigned char>(i >> 8),
-                static_cast<unsigned char>(i)
-            };
+            unsigned char counter_be[WOTS_C_COUNTER_SIZE];
+            for (uint32_t b = 0; b < WOTS_C_COUNTER_SIZE; b++)
+            {
+                counter_be[b] = static_cast<unsigned char>(i >> (8 * (WOTS_C_COUNTER_SIZE - 1 - b)));
+            }
 
             CSHA256 ctx = base_ctx;
-            sha256_add_to_ctx(ctx, counter_be, 2);
+            sha256_add_to_ctx(ctx, counter_be, WOTS_C_COUNTER_SIZE);
             sha256_finalize(ctx, tmp);
 
             base_2b(tmp, WOTS_C_CHAIN_BITS, WOTS_C_CHAIN_COUNT, msg_out);
             if(sum(msg_out, WOTS_C_CHAIN_COUNT) == WOTS_C_CONSTANT_SUM)
             {
                 *success = true;
-                return i;
+                return static_cast<uint32_t>(i);
             }
         }
         
@@ -185,6 +190,8 @@ namespace WOTS
 
     bool wots_c_sign(const unsigned char* message, const unsigned char* sk_seed, CSHA256& hash_ctx, unsigned char* adrs, unsigned char* out)
     {
+        unsigned char sf_structure[2] = {adrs[10], adrs[11]};
+
         uint32_t indexes[WOTS_C_CHAIN_COUNT];
         bool success;
         uint32_t ctr = wots_c_grind(message, hash_ctx, adrs, indexes, &success);
@@ -194,19 +201,22 @@ namespace WOTS
             return false;
         }
 
-        out[0] = static_cast<unsigned char>(ctr >> 8);
-        out[1] = static_cast<unsigned char>(ctr);
+        for (uint32_t i = 0; i < WOTS_C_COUNTER_SIZE; i++)
+        {
+            out[i] = static_cast<unsigned char>(ctr >> (8 * (WOTS_C_COUNTER_SIZE - 1 - i)));
+        }
 
         unsigned char sk[N];
-        set_10_14(adrs, 0);
         for (uint32_t i = 0; i < WOTS_C_CHAIN_COUNT; i++)
         {
             setType(adrs, SF_WOTS_C_PRF);
+            memcpy(adrs + 10, sf_structure, 2);
             set_14_18(adrs, i);
             set_18_22(adrs, 0);
             prf(hash_ctx, sk_seed, adrs, sk);
             setType(adrs, SF_WOTS_C_HASH);
-            chain(sk, 0, indexes[i], hash_ctx, adrs, out + N * i + 2);
+            set_10_14(adrs, 0);
+            chain(sk, 0, indexes[i], hash_ctx, adrs, out + N * i + WOTS_C_COUNTER_SIZE);
         }
 
         return true;
@@ -214,7 +224,11 @@ namespace WOTS
 
     bool wots_c_pk_from_sig(const unsigned char* sig, const unsigned char* message, CSHA256& hash_ctx, unsigned char* adrs, unsigned char* out)
     {
-        uint32_t ctr = (static_cast<uint32_t>(sig[0]) << 8) | sig[1];
+        uint32_t ctr = 0;
+        for (uint32_t i = 0; i < WOTS_C_COUNTER_SIZE; i++)
+        {
+            ctr = (ctr << 8) | sig[i];
+        }
 
         uint32_t indexes[WOTS_C_CHAIN_COUNT];
         if(!wots_c_digest(message, hash_ctx, ctr, adrs, indexes))
@@ -230,7 +244,7 @@ namespace WOTS
         for (uint32_t i = 0; i < WOTS_C_CHAIN_COUNT; i++)
         {
             set_14_18(adrs, i);
-            chain(sig + 2 + N * i, indexes[i], (1 << WOTS_C_CHAIN_BITS) - 1 - indexes[i], hash_ctx, adrs, wots_pk[i]);
+            chain(sig + WOTS_C_COUNTER_SIZE + N * i, indexes[i], (1 << WOTS_C_CHAIN_BITS) - 1 - indexes[i], hash_ctx, adrs, wots_pk[i]);
         }
         
         setType(adrs, SF_WOTS_C_PK);

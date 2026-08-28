@@ -26,11 +26,12 @@ namespace FXMSS
         return CACHE_SLOT_ABSENT;
     }
 
-    static void fxmss_leaf(const unsigned char* sk_seed, CSHA256& hash_ctx, uint32_t leaf_depth, uint64_t leaf_index, unsigned char* out)
+    static void fxmss_leaf(const unsigned char* sk_seed, CSHA256& hash_ctx, const unsigned char* structure, uint32_t leaf_depth, uint64_t leaf_index, unsigned char* out)
     {
         unsigned char adrs[22] = {0};
         setLayerAddress(adrs, FXMSS_HEIGHT - leaf_depth);
         setTreeAddress(adrs, leaf_index);
+        memcpy(adrs + 10, structure, 2);
 
         wots_c_pk_gen(sk_seed, hash_ctx, adrs, out);
     }
@@ -55,11 +56,11 @@ namespace FXMSS
         for (int depth = 1; depth <= tree_depth; depth++)
         {
             uint64_t slot = leaves_only ? uxmss_leaf_slot(tree_depth, 1, depth) : uxmss_cache_slot(tree_depth, 1, depth);
-            fxmss_leaf(sk_seed, hash_ctx, (uint32_t)depth, 1, cache + slot * N);
+            fxmss_leaf(sk_seed, hash_ctx, structure, (uint32_t)depth, 1, cache + slot * N);
         }
 
         uint64_t deepest = leaves_only ? uxmss_leaf_slot(tree_depth, 0, tree_depth) : uxmss_cache_slot(tree_depth, 0, tree_depth);
-        fxmss_leaf(sk_seed, hash_ctx, (uint32_t)tree_depth, 0, cache + deepest * N);
+        fxmss_leaf(sk_seed, hash_ctx, structure, (uint32_t)tree_depth, 0, cache + deepest * N);
 
         unsigned char node[N], children[N << 1];
         memcpy(node, cache + deepest * N, N);
@@ -99,17 +100,19 @@ namespace FXMSS
 
     static bool uxmss_subtree(const unsigned char* sk_seed, CSHA256& hash_ctx, uint32_t tree_depth, uint32_t root_depth, unsigned char* out)
     {
+        const unsigned char structure[2] = {FXMSS_SHAPE_UNBALANCED, (unsigned char)tree_depth};
+
         int count = (int)(tree_depth - root_depth);
         unsigned char leaves[(FXMSS_HEIGHT + 1) * N];
 
         #pragma omp parallel for schedule(static) if(count >= 8)
         for (int i = 0; i < count; i++)
         {
-            fxmss_leaf(sk_seed, hash_ctx, root_depth + 1 + (uint32_t)i, 1, leaves + (size_t)i * N);
+            fxmss_leaf(sk_seed, hash_ctx, structure, root_depth + 1 + (uint32_t)i, 1, leaves + (size_t)i * N);
         }
 
         unsigned char node[N], children[N << 1];
-        fxmss_leaf(sk_seed, hash_ctx, tree_depth, 0, node);
+        fxmss_leaf(sk_seed, hash_ctx, structure, tree_depth, 0, node);
 
         for (int depth = (int)tree_depth - 1; depth >= (int)root_depth; depth--)
         {
@@ -126,6 +129,8 @@ namespace FXMSS
 
     static bool bxmss_subtree(const unsigned char* sk_seed, CSHA256& hash_ctx, uint32_t tree_depth, uint64_t root_index, uint32_t root_depth, unsigned char* out)
     {
+        const unsigned char structure[2] = {FXMSS_SHAPE_BALANCED, (unsigned char)tree_depth};
+
         uint32_t levels = tree_depth - root_depth;
         if (levels > 32) return false;
 
@@ -144,7 +149,7 @@ namespace FXMSS
             #pragma omp parallel for schedule(static) if(block_count >= 16)
             for (int i = 0; i < block_count; i++)
             {
-                fxmss_leaf(sk_seed, hash_ctx, tree_depth, base + start + (uint64_t)i, block + (size_t)i * N);
+                fxmss_leaf(sk_seed, hash_ctx, structure, tree_depth, base + start + (uint64_t)i, block + (size_t)i * N);
             }
 
             for (int b = 0; b < block_count; b++)
@@ -215,6 +220,7 @@ namespace FXMSS
         {
             setLayerAddress(adrs, node_height);
             setTreeAddress(adrs, node_index);
+            memcpy(adrs + 10, structure, 2);
             wots_c_pk_gen(sk_seed, hash_ctx, adrs, out);
             return true;
         }
@@ -251,9 +257,10 @@ namespace FXMSS
         unsigned char adrs[22] = {0};
         setLayerAddress(adrs, leaf_height);
         setTreeAddress(adrs, leaf_index);
+        memcpy(adrs + 10, structure, 2);
         if (!wots_c_sign(message, sk_seed, hash_ctx, adrs, out)) return false;
 
-        unsigned char* auth = out + WOTS_C_CHAINS_SIZE + 2;
+        unsigned char* auth = out + WOTS_C_CHAINS_SIZE + WOTS_C_COUNTER_SIZE;
 
         if (cache != NULL && tree_shape == FXMSS_SHAPE_BALANCED)
         {
@@ -301,7 +308,7 @@ namespace FXMSS
 
     bool fxmss_pk_from_sig(const unsigned char* sig, uint32_t sig_len, const unsigned char* message, CSHA256& hash_ctx, uint64_t leaf_index, unsigned char* out)
     {
-        uint32_t leaf_depth = (sig_len - 2 - WOTS_C_CHAINS_SIZE) >> 4;
+        uint32_t leaf_depth = (sig_len - WOTS_C_COUNTER_SIZE - WOTS_C_CHAINS_SIZE) >> 4;
         if (leaf_depth < 64 && leaf_index >= (UINT64_C(1) << leaf_depth))
         {
             return false;
@@ -318,7 +325,7 @@ namespace FXMSS
         set_10_14(adrs, 0);
         set_14_22(adrs, 0);
 
-        uint32_t offset = WOTS_C_CHAINS_SIZE + 2;
+        uint32_t offset = WOTS_C_CHAINS_SIZE + WOTS_C_COUNTER_SIZE;
         unsigned char nodes[N << 1];
         for (uint32_t i = 0; i < leaf_depth; i++)
         {

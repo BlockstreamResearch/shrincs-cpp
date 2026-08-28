@@ -61,9 +61,12 @@ namespace BDS
 
     static void gen_leaf(const unsigned char* sk_seed, CSHA256& hash_ctx, uint32_t tree_depth, uint64_t index, unsigned char* out)
     {
+        const unsigned char structure[2] = {FXMSSShape::FXMSS_SHAPE_BALANCED, (unsigned char)tree_depth};
+
         unsigned char adrs[22] = {0};
         setLayerAddress(adrs, FXMSS_HEIGHT - tree_depth);
         setTreeAddress(adrs, index);
+        memcpy(adrs + 10, structure, 2);
         WOTS::wots_c_pk_gen(sk_seed, hash_ctx, adrs, out);
     }
 

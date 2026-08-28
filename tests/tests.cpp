@@ -45,7 +45,7 @@ const SecretKey& keypair(const std::vector<unsigned char>& structure, unsigned c
     if (!ready)
     {
         std::vector<unsigned char> seed = test_seed(salt);
-        EXPECT_TRUE(shrincs_keygen(seed.data(), structure, sk));
+        EXPECT_TRUE(shrincs_keygen(seed, structure, sk));
         ready = true;
     }
 
@@ -57,7 +57,22 @@ const SecretKey& unbalanced_key() { return keypair(STRUCTURE_UNBALANCED, 0x40); 
 
 uint32_t stateful_sig_size(uint8_t leaf_height)
 {
-    return N + 8 + 2 + WOTS_C_CHAINS_SIZE + N * (FXMSS_HEIGHT - leaf_height);
+    uint32_t leaf_depth = FXMSS_HEIGHT - leaf_height;
+    uint32_t bits = leaf_depth < 64 ? leaf_depth : 64;
+
+    return 1 + N + ((bits + 7) >> 3) + WOTS_C_COUNTER_SIZE + WOTS_C_CHAINS_SIZE + N * leaf_depth;
+}
+
+// The API takes the counter by pointer so that a null one can ask for the
+// stateless path; these keep the tests reading as before.
+bool sign_at(const std::vector<unsigned char>& message, const SecretKey& sk, uint64_t state_ctr, const std::vector<unsigned char>& opt_rand, std::vector<unsigned char>& out, std::vector<unsigned char>* cache = NULL, bool leaves_only = false)
+{
+    return shrincs_sign(message, {}, sk, &state_ctr, opt_rand, out, cache, leaves_only);
+}
+
+bool leaf_select_at(const std::vector<unsigned char>& structure, uint64_t state_ctr, uint64_t* out_lr, uint8_t* out_bt)
+{
+    return shrincs_sf_leaf_select(structure, &state_ctr, out_lr, out_bt);
 }
 
 std::string to_hex(const unsigned char* data, size_t len)
@@ -236,7 +251,7 @@ TEST(WOTSTest, WotsCRecoversPublicKey) {
     setLayerAddress(base, 200);
     setTreeAddress(base, 1);
 
-    unsigned char adrs[22], sig[2 + WOTS_C_CHAINS_SIZE], from_sig[N], generated[N];
+    unsigned char adrs[22], sig[WOTS_C_COUNTER_SIZE + WOTS_C_CHAINS_SIZE], from_sig[N], generated[N];
 
     memcpy(adrs, base, 22);
     ASSERT_TRUE(WOTS::wots_c_sign(digest, sk_seed, hash_ctx, adrs, sig));
@@ -379,11 +394,11 @@ TEST(SHRINCSTest, StatefulBalancedSignVerify) {
     for (uint32_t state_ctr = 0; state_ctr < (1u << 4); state_ctr++)
     {
         std::vector<unsigned char> signature;
-        ASSERT_TRUE(shrincs_sign(message, sk, state_ctr, {}, signature)) << "state_ctr " << state_ctr;
+        ASSERT_TRUE(sign_at(message, sk, state_ctr, {}, signature)) << "state_ctr " << state_ctr;
 
         // A BXMSS tree signs from a fixed depth, so every signature is the same size.
         EXPECT_EQ(stateful_sig_size(FXMSS_HEIGHT - 4), signature.size());
-        EXPECT_TRUE(shrincs_verify(message, signature, sk.pk)) << "state_ctr " << state_ctr;
+        EXPECT_TRUE(shrincs_verify(message, signature, {}, sk.pk)) << "state_ctr " << state_ctr;
     }
 }
 
@@ -396,14 +411,14 @@ TEST(SHRINCSTest, StatefulUnbalancedSignVerify) {
     {
         uint64_t leaf_index;
         uint8_t leaf_height;
-        ASSERT_TRUE(shrincs_sf_leaf_select(sk.structure, state_ctr, &leaf_index, &leaf_height));
+        ASSERT_TRUE(leaf_select_at(sk.structure, state_ctr, &leaf_index, &leaf_height));
 
         std::vector<unsigned char> signature;
-        ASSERT_TRUE(shrincs_sign(message, sk, state_ctr, {}, signature)) << "state_ctr " << state_ctr;
+        ASSERT_TRUE(sign_at(message, sk, state_ctr, {}, signature)) << "state_ctr " << state_ctr;
 
         // A UXMSS tree signs deeper as the counter advances, growing the auth path.
         EXPECT_EQ(stateful_sig_size(leaf_height), signature.size());
-        EXPECT_TRUE(shrincs_verify(message, signature, sk.pk)) << "state_ctr " << state_ctr;
+        EXPECT_TRUE(shrincs_verify(message, signature, {}, sk.pk)) << "state_ctr " << state_ctr;
     }
 }
 
@@ -414,27 +429,27 @@ TEST(SHRINCSTest, LeafSelectMatchesSpec) {
     // UXMSS: the last counter lands on the left child of the root, the rest on index 1.
     for (uint32_t state_ctr = 0; state_ctr < 16; state_ctr++)
     {
-        ASSERT_TRUE(shrincs_sf_leaf_select(STRUCTURE_UNBALANCED, state_ctr, &leaf_index, &leaf_height));
+        ASSERT_TRUE(leaf_select_at(STRUCTURE_UNBALANCED, state_ctr, &leaf_index, &leaf_height));
         EXPECT_EQ(1u, leaf_index);
         EXPECT_EQ(FXMSS_HEIGHT - 1 - state_ctr, leaf_height);
     }
 
-    ASSERT_TRUE(shrincs_sf_leaf_select(STRUCTURE_UNBALANCED, 16, &leaf_index, &leaf_height));
+    ASSERT_TRUE(leaf_select_at(STRUCTURE_UNBALANCED, 16, &leaf_index, &leaf_height));
     EXPECT_EQ(0u, leaf_index);
     EXPECT_EQ(FXMSS_HEIGHT - 16, leaf_height);
 
-    EXPECT_FALSE(shrincs_sf_leaf_select(STRUCTURE_UNBALANCED, 17, &leaf_index, &leaf_height));
+    EXPECT_FALSE(leaf_select_at(STRUCTURE_UNBALANCED, 17, &leaf_index, &leaf_height));
 
     // BXMSS: the counter is the leaf index, at a fixed depth.
-    ASSERT_TRUE(shrincs_sf_leaf_select(STRUCTURE_BALANCED, 15, &leaf_index, &leaf_height));
+    ASSERT_TRUE(leaf_select_at(STRUCTURE_BALANCED, 15, &leaf_index, &leaf_height));
     EXPECT_EQ(15u, leaf_index);
     EXPECT_EQ(FXMSS_HEIGHT - 4, leaf_height);
 
-    EXPECT_FALSE(shrincs_sf_leaf_select(STRUCTURE_BALANCED, 16, &leaf_index, &leaf_height));
+    EXPECT_FALSE(leaf_select_at(STRUCTURE_BALANCED, 16, &leaf_index, &leaf_height));
 
     // A depth-zero tree has no stateful leaves at all.
-    EXPECT_FALSE(shrincs_sf_leaf_select({FXMSS_SHAPE_BALANCED, 0}, 0, &leaf_index, &leaf_height));
-    EXPECT_FALSE(shrincs_sf_leaf_select({0x7f, 4}, 0, &leaf_index, &leaf_height));
+    EXPECT_FALSE(leaf_select_at({FXMSS_SHAPE_BALANCED, 0}, 0, &leaf_index, &leaf_height));
+    EXPECT_FALSE(leaf_select_at({0x7f, 4}, 0, &leaf_index, &leaf_height));
 }
 
 // Mirrors impl/test.py: an exhausted counter falls back to the stateless path.
@@ -443,10 +458,10 @@ TEST(SHRINCSTest, StatelessFallbackSignVerify) {
     std::vector<unsigned char> message = {'f', 'o', 'o', 'b', 'a', 'r', '!'};
 
     std::vector<unsigned char> signature;
-    ASSERT_TRUE(shrincs_sign(message, sk, 17, {}, signature));
+    ASSERT_TRUE(sign_at(message, sk, 17, {}, signature));
 
-    EXPECT_EQ(SPHX_SIGNATURE_SIZE, signature.size());
-    EXPECT_TRUE(shrincs_verify(message, signature, sk.pk));
+    EXPECT_EQ(SHRINCS_SL_SIGNATURE_SIZE, signature.size());
+    EXPECT_TRUE(shrincs_verify(message, signature, {}, sk.pk));
 }
 
 TEST(SHRINCSTest, StatelessHedgedVariantVerifies) {
@@ -455,12 +470,12 @@ TEST(SHRINCSTest, StatelessHedgedVariantVerifies) {
     std::vector<unsigned char> opt_rand(N, 0xbe);
 
     std::vector<unsigned char> deterministic, hedged;
-    ASSERT_TRUE(shrincs_sign(message, sk, 17, {}, deterministic));
-    ASSERT_TRUE(shrincs_sign(message, sk, 17, opt_rand, hedged));
+    ASSERT_TRUE(sign_at(message, sk, 17, {}, deterministic));
+    ASSERT_TRUE(sign_at(message, sk, 17, opt_rand, hedged));
 
     EXPECT_NE(deterministic, hedged);
-    EXPECT_TRUE(shrincs_verify(message, deterministic, sk.pk));
-    EXPECT_TRUE(shrincs_verify(message, hedged, sk.pk));
+    EXPECT_TRUE(shrincs_verify(message, deterministic, {}, sk.pk));
+    EXPECT_TRUE(shrincs_verify(message, hedged, {}, sk.pk));
 }
 
 TEST(SHRINCSTest, StatefulSigningIsDeterministic) {
@@ -468,8 +483,8 @@ TEST(SHRINCSTest, StatefulSigningIsDeterministic) {
     std::vector<unsigned char> message = {'d', 'e', 't'};
 
     std::vector<unsigned char> first, second;
-    ASSERT_TRUE(shrincs_sign(message, sk, 3, {}, first));
-    ASSERT_TRUE(shrincs_sign(message, sk, 3, {}, second));
+    ASSERT_TRUE(sign_at(message, sk, 3, {}, first));
+    ASSERT_TRUE(sign_at(message, sk, 3, {}, second));
 
     EXPECT_EQ(first, second);
 }
@@ -479,11 +494,11 @@ TEST(SHRINCSTest, RejectsWrongMessage) {
     std::vector<unsigned char> message = {'o', 'r', 'i', 'g'};
 
     std::vector<unsigned char> signature;
-    ASSERT_TRUE(shrincs_sign(message, sk, 0, {}, signature));
+    ASSERT_TRUE(sign_at(message, sk, 0, {}, signature));
 
     std::vector<unsigned char> other = {'o', 'r', 'i', 'h'};
-    EXPECT_FALSE(shrincs_verify(other, signature, sk.pk));
-    EXPECT_FALSE(shrincs_verify({}, signature, sk.pk));
+    EXPECT_FALSE(shrincs_verify(other, signature, {}, sk.pk));
+    EXPECT_FALSE(shrincs_verify({}, signature, {}, sk.pk));
 }
 
 TEST(SHRINCSTest, RejectsWrongLeafIndex) {
@@ -491,11 +506,11 @@ TEST(SHRINCSTest, RejectsWrongLeafIndex) {
     std::vector<unsigned char> message = {'l', 'e', 'a', 'f'};
 
     std::vector<unsigned char> signature;
-    ASSERT_TRUE(shrincs_sign(message, sk, 2, {}, signature));
+    ASSERT_TRUE(sign_at(message, sk, 2, {}, signature));
 
     // The leaf index is the 8 bytes that follow the randomizer.
     signature[N + 7] ^= 0x01;
-    EXPECT_FALSE(shrincs_verify(message, signature, sk.pk));
+    EXPECT_FALSE(shrincs_verify(message, signature, {}, sk.pk));
 }
 
 TEST(SHRINCSTest, RejectsTamperedStatefulSignature) {
@@ -503,21 +518,25 @@ TEST(SHRINCSTest, RejectsTamperedStatefulSignature) {
     std::vector<unsigned char> message = {'t', 'a', 'm', 'p', 'e', 'r'};
 
     std::vector<unsigned char> signature;
-    ASSERT_TRUE(shrincs_sign(message, sk, 1, {}, signature));
-    ASSERT_TRUE(shrincs_verify(message, signature, sk.pk));
+    ASSERT_TRUE(sign_at(message, sk, 1, {}, signature));
+    ASSERT_TRUE(shrincs_verify(message, signature, {}, sk.pk));
 
+    // A depth-4 tree indexes its leaves in a single byte.
+    const size_t index_size = 1;
     const size_t offsets[] = {
-        0,                                    // randomizer
-        N + 8,                                // WOTS+C grinding counter
-        N + 8 + 2,                            // first WOTS+C chain
-        signature.size() - 1                  // last auth path node
+        0,                                        // indicator byte
+        1,                                        // randomizer
+        1 + N,                                    // leaf index
+        1 + N + index_size,                       // WOTS+C grinding counter
+        1 + N + index_size + WOTS_C_COUNTER_SIZE, // first WOTS+C chain
+        signature.size() - 1                      // last auth path node
     };
 
     for (size_t offset : offsets)
     {
         std::vector<unsigned char> broken = signature;
         broken[offset] ^= 0x01;
-        EXPECT_FALSE(shrincs_verify(message, broken, sk.pk)) << "offset " << offset;
+        EXPECT_FALSE(shrincs_verify(message, broken, {}, sk.pk)) << "offset " << offset;
     }
 }
 
@@ -526,19 +545,19 @@ TEST(SHRINCSTest, RejectsMalformedStatefulSignature) {
     std::vector<unsigned char> message = {'s', 'i', 'z', 'e'};
 
     std::vector<unsigned char> signature;
-    ASSERT_TRUE(shrincs_sign(message, sk, 0, {}, signature));
+    ASSERT_TRUE(sign_at(message, sk, 0, {}, signature));
 
-    EXPECT_FALSE(shrincs_verify(message, {}, sk.pk));
-    EXPECT_FALSE(shrincs_verify(message, std::vector<unsigned char>(N + 8), sk.pk));
+    EXPECT_FALSE(shrincs_verify(message, {}, {}, sk.pk));
+    EXPECT_FALSE(shrincs_verify(message, std::vector<unsigned char>(N + 8), {}, sk.pk));
 
     // Truncating by one byte breaks the "2 more than a multiple of 16" rule.
     std::vector<unsigned char> short_sig(signature.begin(), signature.end() - 1);
-    EXPECT_FALSE(shrincs_verify(message, short_sig, sk.pk));
+    EXPECT_FALSE(shrincs_verify(message, short_sig, {}, sk.pk));
 
     // Padding to a valid length still fails, because the auth path no longer matches.
     std::vector<unsigned char> long_sig = signature;
     long_sig.resize(signature.size() + N, 0);
-    EXPECT_FALSE(shrincs_verify(message, long_sig, sk.pk));
+    EXPECT_FALSE(shrincs_verify(message, long_sig, {}, sk.pk));
 }
 
 TEST(SHRINCSTest, RejectsTamperedStatelessSignature) {
@@ -546,21 +565,22 @@ TEST(SHRINCSTest, RejectsTamperedStatelessSignature) {
     std::vector<unsigned char> message = {'s', 'l'};
 
     std::vector<unsigned char> signature;
-    ASSERT_TRUE(shrincs_sign(message, sk, 17, {}, signature));
-    ASSERT_TRUE(shrincs_verify(message, signature, sk.pk));
+    ASSERT_TRUE(sign_at(message, sk, 17, {}, signature));
+    ASSERT_TRUE(shrincs_verify(message, signature, {}, sk.pk));
 
     const size_t offsets[] = {
-        0,                              // randomizer
-        N,                              // FORS signature
-        N + FORS_SIGNATURE_SIZE,        // hypertree signature
-        SPHX_SIGNATURE_SIZE - 1
+        0,                                  // indicator byte
+        1,                                  // randomizer
+        1 + N,                              // FORS signature
+        1 + N + FORS_SIGNATURE_SIZE,        // hypertree signature
+        SHRINCS_SL_SIGNATURE_SIZE - 1
     };
 
     for (size_t offset : offsets)
     {
         std::vector<unsigned char> broken = signature;
         broken[offset] ^= 0x01;
-        EXPECT_FALSE(shrincs_verify(message, broken, sk.pk)) << "offset " << offset;
+        EXPECT_FALSE(shrincs_verify(message, broken, {}, sk.pk)) << "offset " << offset;
     }
 }
 
@@ -569,36 +589,51 @@ TEST(SHRINCSTest, RejectsForeignPublicKey) {
     std::vector<unsigned char> message = {'k', 'e', 'y'};
 
     std::vector<unsigned char> signature;
-    ASSERT_TRUE(shrincs_sign(message, sk, 0, {}, signature));
+    ASSERT_TRUE(sign_at(message, sk, 0, {}, signature));
 
     SecretKey other;
     std::vector<unsigned char> seed = test_seed(0x99);
-    ASSERT_TRUE(shrincs_keygen(seed.data(), STRUCTURE_BALANCED, other));
+    ASSERT_TRUE(shrincs_keygen(seed, STRUCTURE_BALANCED, other));
 
-    EXPECT_FALSE(shrincs_verify(message, signature, other.pk));
+    EXPECT_FALSE(shrincs_verify(message, signature, {}, other.pk));
 }
 
 // Known-answer vectors generated with impl/shrincs.py from the SHRINCS BIP, using
-// seed[i] = i * 7 + salt (mod 256) over 48 bytes and the message "foobar!".
+// seed[i] = i * 7 + salt (mod 256) over 48 bytes and the message "foobar!". They
+// only describe the BIP's WOTS+C parameters, so a rebuild with different ones has
+// to skip them rather than regenerate them from this implementation.
+bool bip_wots_c_parameters()
+{
+    return WOTS_C_CHAIN_BITS == 4 && WOTS_C_CHAIN_COUNT == 32;
+}
+
+#define SKIP_UNLESS_BIP_PARAMETERS()                                                    \
+    if (!bip_wots_c_parameters())                                                       \
+    {                                                                                   \
+        GTEST_SKIP() << "reference vectors cover w = 16 with 32 chains, built with w = " \
+                     << (1u << WOTS_C_CHAIN_BITS) << " and " << WOTS_C_CHAIN_COUNT;     \
+    }
 TEST(SHRINCSTest, MatchesReferenceVectorsBalanced) {
+    SKIP_UNLESS_BIP_PARAMETERS();
+
     const SecretKey& sk = balanced_key();
     std::vector<unsigned char> message = {'f', 'o', 'o', 'b', 'a', 'r', '!'};
 
     EXPECT_EQ("e0e7eef5fc030a11181f262d343b4249", to_hex(sk.pk.seed.data(), N));
     EXPECT_EQ("176e4fe4edd3da85abd948648331f9da", to_hex(sk.pk.sl_root.data(), N));
-    EXPECT_EQ("d9afd2ca0f3ccea8928397a3f7fae8a3", to_hex(sk.pk.sf_root.data(), N));
+    EXPECT_EQ("6dda4a1582a6391d02be85eb78510ad6", to_hex(sk.pk.sf_root.data(), N));
 
     struct Vector { uint32_t state_ctr; size_t size; const char* digest; };
     const Vector vectors[] = {
-        {0, 602, "9a6792711aa775441eece0d9d265dfbcaff01b10f5c4922cb1d49b757d275b6f"},
-        {1, 602, "c0cc8a83333225081ad9e6c14d895fc9cfb47ddc02ce25cdd33d1506b2aadad4"},
-        {3, 602, "42faf4f165e1c01bc09277a14f5b862872ef52296aa5e2b7bf9d3e6f16892ce0"}
+        {0, 596, "1f03693bc706589ad06fe23d047a72eec317d8824158ea1f44428c278de6e5e2"},
+        {1, 596, "051e3b1588617ac3af1141a03bd2e0cec5bb87c63fb3a54fad8a0bc610602bce"},
+        {3, 596, "9a37f7d4fd53e78bbd327b7a68e1f3dcf219fa372c1f10db810c90ca07e00c42"}
     };
 
     for (const Vector& vector : vectors)
     {
         std::vector<unsigned char> signature;
-        ASSERT_TRUE(shrincs_sign(message, sk, vector.state_ctr, {}, signature));
+        ASSERT_TRUE(sign_at(message, sk, vector.state_ctr, {}, signature));
 
         EXPECT_EQ(vector.size, signature.size()) << "state_ctr " << vector.state_ctr;
         EXPECT_EQ(vector.digest, sha256_hex(signature)) << "state_ctr " << vector.state_ctr;
@@ -606,26 +641,28 @@ TEST(SHRINCSTest, MatchesReferenceVectorsBalanced) {
 }
 
 TEST(SHRINCSTest, MatchesReferenceVectorsUnbalanced) {
+    SKIP_UNLESS_BIP_PARAMETERS();
+
     const SecretKey& sk = unbalanced_key();
     std::vector<unsigned char> message = {'f', 'o', 'o', 'b', 'a', 'r', '!'};
 
     EXPECT_EQ("20272e353c434a51585f666d747b8289", to_hex(sk.pk.seed.data(), N));
     EXPECT_EQ("1f2903d4077bcd6d3fa0c11f9173d386", to_hex(sk.pk.sl_root.data(), N));
-    EXPECT_EQ("5e64a7f6c36dd9a0a795944147c6ffa8", to_hex(sk.pk.sf_root.data(), N));
+    EXPECT_EQ("2ac99260e74b0cdf37f8e8290a989967", to_hex(sk.pk.sf_root.data(), N));
 
     struct Vector { uint32_t state_ctr; size_t size; const char* digest; };
     const Vector vectors[] = {
-        {0,  554,  "1663888c5c9c07b8f92dfcf64bafb8e1f1418b678b5a5641b72edc833f3c868f"},
-        {1,  570,  "9eb5994bc3936d9de8ab1141dfe48bc020b4322db1a66c7b4cef3c8da1cc67b8"},
-        {3,  602,  "f41fd96ec17d40ccf760632a071e285c5e86e1f8532c8d77055fe87de998e232"},
+        {0, 548, "f909a7361a841f0972e2178b7d995befed100399b2f427353b7640d627376a8a"},
+        {1, 564, "2a3aafd41f8907309f11ec27d2d5d68f80d252af5d31abbb425477de8c1013a5"},
+        {3, 596, "b10a841b1edd52699122e2317bc55280576f9d8f780c51e738fe5774432a825f"},
         // An exhausted counter falls back to the stateless SLH-DSA path.
-        {17, 5776, "ca48ea067f53410857c53ba17dc357387a9d31ba3a9e216de5e71776c53f454b"}
+        {17, 5777, "f74c1bb7da91527ab2a5fbb2d52b85a8d88b45ac95b26bbf41e0da26657e01b9"}
     };
 
     for (const Vector& vector : vectors)
     {
         std::vector<unsigned char> signature;
-        ASSERT_TRUE(shrincs_sign(message, sk, vector.state_ctr, {}, signature));
+        ASSERT_TRUE(sign_at(message, sk, vector.state_ctr, {}, signature));
 
         EXPECT_EQ(vector.size, signature.size()) << "state_ctr " << vector.state_ctr;
         EXPECT_EQ(vector.digest, sha256_hex(signature)) << "state_ctr " << vector.state_ctr;
@@ -635,43 +672,45 @@ TEST(SHRINCSTest, MatchesReferenceVectorsUnbalanced) {
 // A UXMSS tree of depth 255 drives the auth-path index past a 64-bit shift width,
 // where shifting the leaf index by >= 64 bits would be undefined behaviour.
 TEST(SHRINCSTest, MatchesReferenceVectorsFullDepth) {
+    SKIP_UNLESS_BIP_PARAMETERS();
+
     SecretKey sk;
     std::vector<unsigned char> seed(3 * N);
     for (size_t i = 0; i < seed.size(); i++)
     {
         seed[i] = static_cast<unsigned char>(i);
     }
-    ASSERT_TRUE(shrincs_keygen(seed.data(), {FXMSS_SHAPE_UNBALANCED, 255}, sk));
+    ASSERT_TRUE(shrincs_keygen(seed, {FXMSS_SHAPE_UNBALANCED, 255}, sk));
 
-    EXPECT_EQ("804387b0e31475f83d1eafd3ac2045b1", to_hex(sk.pk.sf_root.data(), N));
+    EXPECT_EQ("38033ed2e491f21b70e06ea41c20e540", to_hex(sk.pk.sf_root.data(), N));
 
     std::vector<unsigned char> message(32, 0);
 
     struct Vector { uint32_t state_ctr; size_t size; const char* digest; };
     const Vector vectors[] = {
-        {63,  1562, "cc327c6a3491ee7b730b74528fe2adca94b737a755f66b221857c82bab3439a5"},
-        {64,  1578, "4499099c304f0f115fdb072bff6d4836bf6ec8079b964ed08f40c96acdcc4db8"},
-        {65,  1594, "56371e629b52e0d4b9b719ea02913fffbfe280dc2b317aad3d93fb799ac4e2db"},
-        {100, 2154, "2419d2aba64f9c19b0725fea0dc94d5563e060fd75ec8f27ff46c53d8e8eaba5"},
-        {254, 4618, "1317a4867a535668effa38175e08121e217478ee760406d01a3c4c61c01f3382"},
-        {255, 4618, "219f6dae88f703cc96dff57264c623c12c3e91a4bbda8e0e0b8375f322c99666"}
+        {63, 1563, "b2a5a6fad5ec8ce5af966362209ba4142eee86d43c206d520876808c333493f6"},
+        {64, 1579, "948c056f9bec9bf83e65b818cc5bf7c5a45b5c0c2340c185eda4b85792de6a30"},
+        {65, 1595, "ac49c7fb2837cfc1268175345548e3e213ea241ce3b079e0b1bcf9b4cf6ca284"},
+        {100, 2155, "fe5a355e470ed608f5c8dcd3b35678067c884142f8974bd381ac916f0572ec7e"},
+        {254, 4619, "0309aec629a36d1a0be5fda9a374380e07b2328d565ee2d636cc7fb79721f1f3"},
+        {255, 4619, "6408e88e55d62ef5865482b40b550891a8bef88fec9536b2f49a384632074224"}
     };
 
     for (const Vector& vector : vectors)
     {
         std::vector<unsigned char> signature;
-        ASSERT_TRUE(shrincs_sign(message, sk, vector.state_ctr, {}, signature)) << "state_ctr " << vector.state_ctr;
+        ASSERT_TRUE(sign_at(message, sk, vector.state_ctr, {}, signature)) << "state_ctr " << vector.state_ctr;
 
         EXPECT_EQ(vector.size, signature.size()) << "state_ctr " << vector.state_ctr;
         EXPECT_EQ(vector.digest, sha256_hex(signature)) << "state_ctr " << vector.state_ctr;
-        EXPECT_TRUE(shrincs_verify(message, signature, sk.pk)) << "state_ctr " << vector.state_ctr;
+        EXPECT_TRUE(shrincs_verify(message, signature, {}, sk.pk)) << "state_ctr " << vector.state_ctr;
     }
 
     // The tree holds tree_depth + 1 leaves, so 256 exhausts it.
     uint64_t leaf_index;
     uint8_t leaf_height;
-    EXPECT_TRUE(shrincs_sf_leaf_select(sk.structure, 255, &leaf_index, &leaf_height));
-    EXPECT_FALSE(shrincs_sf_leaf_select(sk.structure, 256, &leaf_index, &leaf_height));
+    EXPECT_TRUE(leaf_select_at(sk.structure, 255, &leaf_index, &leaf_height));
+    EXPECT_FALSE(leaf_select_at(sk.structure, 256, &leaf_index, &leaf_height));
 }
 
 TEST(SHRINCSTest, StructuresProduceDistinctStatefulRoots) {
@@ -691,8 +730,8 @@ void expect_cache_matches_plain(const std::vector<unsigned char>& structure, uns
 
     SecretKey plain, cached;
     std::vector<unsigned char> cache;
-    ASSERT_TRUE(shrincs_keygen(seed.data(), structure, plain));
-    ASSERT_TRUE(shrincs_keygen(seed.data(), structure, cached, &cache));
+    ASSERT_TRUE(shrincs_keygen(seed, structure, plain));
+    ASSERT_TRUE(shrincs_keygen(seed, structure, cached, &cache));
 
     EXPECT_EQ(plain.pk.sf_root, cached.pk.sf_root);
     EXPECT_EQ(cache.size(), FXMSS::fxmss_cache_size(structure.data(), false));
@@ -701,11 +740,11 @@ void expect_cache_matches_plain(const std::vector<unsigned char>& structure, uns
     for (uint32_t ctr = 0; ctr <= last_ctr; ctr++)
     {
         std::vector<unsigned char> a, b;
-        ASSERT_TRUE(shrincs_sign(message, plain, ctr, {}, a)) << "ctr " << ctr;
-        ASSERT_TRUE(shrincs_sign(message, cached, ctr, {}, b, &cache)) << "ctr " << ctr;
+        ASSERT_TRUE(sign_at(message, plain, ctr, {}, a)) << "ctr " << ctr;
+        ASSERT_TRUE(sign_at(message, cached, ctr, {}, b, &cache)) << "ctr " << ctr;
 
         EXPECT_EQ(a, b) << "ctr " << ctr;
-        EXPECT_TRUE(shrincs_verify(message, b, cached.pk)) << "ctr " << ctr;
+        EXPECT_TRUE(shrincs_verify(message, b, {}, cached.pk)) << "ctr " << ctr;
     }
 }
 
@@ -728,8 +767,8 @@ TEST(CacheTest, UnbalancedLeavesOnlyMatchesFullCache) {
 
     SecretKey full, leaves;
     std::vector<unsigned char> cache_full, cache_leaves;
-    ASSERT_TRUE(shrincs_keygen(seed.data(), structure, full, &cache_full));
-    ASSERT_TRUE(shrincs_keygen(seed.data(), structure, leaves, &cache_leaves, true));
+    ASSERT_TRUE(shrincs_keygen(seed, structure, full, &cache_full));
+    ASSERT_TRUE(shrincs_keygen(seed, structure, leaves, &cache_leaves, true));
 
     EXPECT_EQ(full.pk.sf_root, leaves.pk.sf_root);
     EXPECT_EQ(cache_leaves.size(), (structure[1] + 1u) * N);
@@ -738,11 +777,11 @@ TEST(CacheTest, UnbalancedLeavesOnlyMatchesFullCache) {
     for (uint32_t ctr = 0; ctr <= structure[1]; ctr++)
     {
         std::vector<unsigned char> a, b;
-        ASSERT_TRUE(shrincs_sign(message, full, ctr, {}, a, &cache_full)) << "ctr " << ctr;
-        ASSERT_TRUE(shrincs_sign(message, leaves, ctr, {}, b, &cache_leaves, true)) << "ctr " << ctr;
+        ASSERT_TRUE(sign_at(message, full, ctr, {}, a, &cache_full)) << "ctr " << ctr;
+        ASSERT_TRUE(sign_at(message, leaves, ctr, {}, b, &cache_leaves, true)) << "ctr " << ctr;
 
         EXPECT_EQ(a, b) << "ctr " << ctr;
-        EXPECT_TRUE(shrincs_verify(message, b, leaves.pk)) << "ctr " << ctr;
+        EXPECT_TRUE(shrincs_verify(message, b, {}, leaves.pk)) << "ctr " << ctr;
     }
 }
 
@@ -753,11 +792,11 @@ TEST(CacheTest, CacheModeMismatchIsRejected) {
 
     SecretKey sk;
     std::vector<unsigned char> cache_leaves;
-    ASSERT_TRUE(shrincs_keygen(seed.data(), structure, sk, &cache_leaves, true));
+    ASSERT_TRUE(shrincs_keygen(seed, structure, sk, &cache_leaves, true));
 
     // Signing must not read a leaf cache as though it held every node.
-    EXPECT_FALSE(shrincs_sign(message, sk, 0, {}, sig, &cache_leaves));
-    EXPECT_TRUE(shrincs_sign(message, sk, 0, {}, sig, &cache_leaves, true));
+    EXPECT_FALSE(sign_at(message, sk, 0, {}, sig, &cache_leaves));
+    EXPECT_TRUE(sign_at(message, sk, 0, {}, sig, &cache_leaves, true));
 }
 
 TEST(CacheTest, UnbalancedCacheHoldsEveryNode) {
@@ -782,13 +821,13 @@ TEST(CacheTest, BalancedRejectsNonSequentialCounters) {
     std::vector<unsigned char> message(32, 1), cache, sig;
 
     SecretKey sk;
-    ASSERT_TRUE(shrincs_keygen(seed.data(), structure, sk, &cache));
+    ASSERT_TRUE(shrincs_keygen(seed, structure, sk, &cache));
 
     // The BDS state tracks one leaf, so skipping or replaying must be refused.
-    EXPECT_FALSE(shrincs_sign(message, sk, 4, {}, sig, &cache));
-    EXPECT_TRUE(shrincs_sign(message, sk, 0, {}, sig, &cache));
-    EXPECT_FALSE(shrincs_sign(message, sk, 0, {}, sig, &cache));
-    EXPECT_TRUE(shrincs_sign(message, sk, 1, {}, sig, &cache));
+    EXPECT_FALSE(sign_at(message, sk, 4, {}, sig, &cache));
+    EXPECT_TRUE(sign_at(message, sk, 0, {}, sig, &cache));
+    EXPECT_FALSE(sign_at(message, sk, 0, {}, sig, &cache));
+    EXPECT_TRUE(sign_at(message, sk, 1, {}, sig, &cache));
 }
 
 TEST(CacheTest, UnbalancedAcceptsAnyCounterOrder) {
@@ -797,14 +836,14 @@ TEST(CacheTest, UnbalancedAcceptsAnyCounterOrder) {
     std::vector<unsigned char> message(32, 2), cache;
 
     SecretKey sk;
-    ASSERT_TRUE(shrincs_keygen(seed.data(), structure, sk, &cache));
+    ASSERT_TRUE(shrincs_keygen(seed, structure, sk, &cache));
 
     // The unbalanced cache is read-only, so counters may be used out of order.
     for (uint32_t ctr : {5u, 0u, 8u, 3u, 5u})
     {
         std::vector<unsigned char> sig;
-        ASSERT_TRUE(shrincs_sign(message, sk, ctr, {}, sig, &cache)) << "ctr " << ctr;
-        EXPECT_TRUE(shrincs_verify(message, sig, sk.pk)) << "ctr " << ctr;
+        ASSERT_TRUE(sign_at(message, sk, ctr, {}, sig, &cache)) << "ctr " << ctr;
+        EXPECT_TRUE(shrincs_verify(message, sig, {}, sk.pk)) << "ctr " << ctr;
     }
 }
 
@@ -814,15 +853,15 @@ TEST(CacheTest, StatelessPathIgnoresCache) {
     std::vector<unsigned char> message(32, 3), cache;
 
     SecretKey sk;
-    ASSERT_TRUE(shrincs_keygen(seed.data(), structure, sk, &cache));
+    ASSERT_TRUE(shrincs_keygen(seed, structure, sk, &cache));
 
     std::vector<unsigned char> with_cache, without_cache;
-    ASSERT_TRUE(shrincs_sign(message, sk, 99, {}, with_cache, &cache));
-    ASSERT_TRUE(shrincs_sign(message, sk, 99, {}, without_cache));
+    ASSERT_TRUE(sign_at(message, sk, 99, {}, with_cache, &cache));
+    ASSERT_TRUE(sign_at(message, sk, 99, {}, without_cache));
 
-    EXPECT_EQ(SPHX_SIGNATURE_SIZE, with_cache.size());
+    EXPECT_EQ(SHRINCS_SL_SIGNATURE_SIZE, with_cache.size());
     EXPECT_EQ(without_cache, with_cache);
-    EXPECT_TRUE(shrincs_verify(message, with_cache, sk.pk));
+    EXPECT_TRUE(shrincs_verify(message, with_cache, {}, sk.pk));
 }
 
 int main(int argc, char **argv) {
